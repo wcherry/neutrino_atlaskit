@@ -18,7 +18,7 @@ The shared Swift package of the Neutrino Atlas apps (macOS + iOS). Read the plat
 - **No plaintext leaves the device.** Titles, content, tags and the link graph are resolved
   and indexed here, on the client. Nothing in this package sends them to the server
   unencrypted (roadmap, constraint 2).
-- **Encryption comes from `NeutrinoCrypto`.** Never add a sixth E2EE implementation (root
+- **Encryption comes from `NeutrinoCrypto`.** Never add another E2EE implementation (root
   `CLAUDE.md`, rule 5).
 - Test on both platforms: `swift test`, plus `xcodebuild test -scheme AtlasKit` on an iOS
   simulator.
