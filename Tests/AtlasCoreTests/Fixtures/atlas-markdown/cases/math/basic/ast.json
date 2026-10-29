@@ -1,0 +1,39 @@
+{
+  "type": "root",
+  "children": [
+    {
+      "type": "paragraph",
+      "blockId": null,
+      "children": [
+        {
+          "type": "text",
+          "value": "Euler: "
+        },
+        {
+          "type": "inlineMath",
+          "value": "e^{i\\pi} + 1 = 0"
+        },
+        {
+          "type": "text",
+          "value": "."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "blockId": null,
+      "children": [
+        {
+          "type": "text",
+          "value": "It costs $5 and $10."
+        }
+      ]
+    },
+    {
+      "type": "math",
+      "meta": null,
+      "value": "\\int_0^1 x\\,dx",
+      "blockId": null
+    }
+  ]
+}

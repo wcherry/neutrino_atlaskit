@@ -1,0 +1,37 @@
+{
+  "type": "root",
+  "children": [
+    {
+      "type": "blockquote",
+      "blockId": null,
+      "children": [
+        {
+          "type": "paragraph",
+          "blockId": null,
+          "children": [
+            {
+              "type": "text",
+              "value": "Just a quote with [!note] in the middle."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "blockquote",
+      "blockId": null,
+      "children": [
+        {
+          "type": "paragraph",
+          "blockId": null,
+          "children": [
+            {
+              "type": "text",
+              "value": "[! note] is not a callout either."
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

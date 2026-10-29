@@ -1,0 +1,28 @@
+{
+  "type": "root",
+  "children": [
+    {
+      "type": "paragraph",
+      "blockId": null,
+      "children": [
+        {
+          "type": "text",
+          "value": "This is "
+        },
+        {
+          "type": "highlight",
+          "children": [
+            {
+              "type": "text",
+              "value": "important"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "value": " and this is not: a == b."
+        }
+      ]
+    }
+  ]
+}

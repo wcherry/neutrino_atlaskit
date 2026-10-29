@@ -1,0 +1,52 @@
+{
+  "type": "root",
+  "children": [
+    {
+      "type": "paragraph",
+      "blockId": null,
+      "children": [
+        {
+          "type": "embed",
+          "target": "Diagram.png",
+          "heading": null,
+          "blockId": null,
+          "alias": "300"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "blockId": null,
+      "children": [
+        {
+          "type": "embed",
+          "target": "Roadmap",
+          "heading": "Phase 1",
+          "blockId": null,
+          "alias": null
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "blockId": null,
+      "children": [
+        {
+          "type": "text",
+          "value": "Inline "
+        },
+        {
+          "type": "embed",
+          "target": "icon.svg",
+          "heading": null,
+          "blockId": null,
+          "alias": null
+        },
+        {
+          "type": "text",
+          "value": " embed."
+        }
+      ]
+    }
+  ]
+}

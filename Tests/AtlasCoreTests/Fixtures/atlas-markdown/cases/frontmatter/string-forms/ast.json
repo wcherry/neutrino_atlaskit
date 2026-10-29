@@ -1,0 +1,19 @@
+{
+  "type": "root",
+  "children": [
+    {
+      "type": "yaml",
+      "value": "tags: alpha, beta gamma #delta\naliases: Single Alias"
+    },
+    {
+      "type": "paragraph",
+      "blockId": null,
+      "children": [
+        {
+          "type": "text",
+          "value": "Text."
+        }
+      ]
+    }
+  ]
+}

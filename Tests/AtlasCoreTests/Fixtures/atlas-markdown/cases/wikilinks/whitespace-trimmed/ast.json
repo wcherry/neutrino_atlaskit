@@ -1,0 +1,37 @@
+{
+  "type": "root",
+  "children": [
+    {
+      "type": "paragraph",
+      "blockId": null,
+      "children": [
+        {
+          "type": "text",
+          "value": "Trimmed: "
+        },
+        {
+          "type": "wikiLink",
+          "target": "Spaced Title",
+          "heading": null,
+          "blockId": null,
+          "alias": "shown"
+        },
+        {
+          "type": "text",
+          "value": " and "
+        },
+        {
+          "type": "wikiLink",
+          "target": "Page",
+          "heading": null,
+          "blockId": null,
+          "alias": null
+        },
+        {
+          "type": "text",
+          "value": "."
+        }
+      ]
+    }
+  ]
+}

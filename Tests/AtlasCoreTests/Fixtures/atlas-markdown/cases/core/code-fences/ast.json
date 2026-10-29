@@ -1,0 +1,26 @@
+{
+  "type": "root",
+  "children": [
+    {
+      "type": "code",
+      "lang": "rust",
+      "meta": null,
+      "value": "fn main() {}",
+      "blockId": null
+    },
+    {
+      "type": "code",
+      "lang": "ts",
+      "meta": "title=\"a.ts\"",
+      "value": "const a = 1",
+      "blockId": null
+    },
+    {
+      "type": "code",
+      "lang": null,
+      "meta": null,
+      "value": "plain [[not a link]] #not-a-tag",
+      "blockId": null
+    }
+  ]
+}

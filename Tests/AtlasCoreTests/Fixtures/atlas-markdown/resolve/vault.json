@@ -1,0 +1,131 @@
+{
+  "description": "Link resolution (SPEC §7) and link writing against one vault.",
+  "files": [
+    "Inbox.md",
+    "Roadmap.md",
+    "Projects/Roadmap.md",
+    "Projects/Plan.md",
+    "Projects/Atlas/Spec.md",
+    "Archive/Spec.md",
+    "Meeting Notes.md",
+    "Café.md",
+    "attachments/Diagram.png",
+    "Projects/Diagram.png"
+  ],
+  "resolve": [
+    {
+      "from": "Inbox.md",
+      "target": "Roadmap",
+      "expect": "Roadmap.md",
+      "why": "fewest segments"
+    },
+    {
+      "from": "Projects/Plan.md",
+      "target": "Roadmap",
+      "expect": "Roadmap.md",
+      "why": "the linking page's folder does not matter"
+    },
+    {
+      "from": "Inbox.md",
+      "target": "Projects/Roadmap",
+      "expect": "Projects/Roadmap.md",
+      "why": "whole-path match"
+    },
+    {
+      "from": "Inbox.md",
+      "target": "Spec",
+      "expect": "Archive/Spec.md",
+      "why": "fewest segments"
+    },
+    {
+      "from": "Inbox.md",
+      "target": "Atlas/Spec",
+      "expect": "Projects/Atlas/Spec.md",
+      "why": "path suffix"
+    },
+    {
+      "from": "Inbox.md",
+      "target": "tlas/Spec",
+      "expect": null,
+      "why": "suffixes match on whole segments only"
+    },
+    {
+      "from": "Inbox.md",
+      "target": "meeting notes",
+      "expect": "Meeting Notes.md",
+      "why": "case-insensitive"
+    },
+    {
+      "from": "Inbox.md",
+      "target": "Roadmap.md",
+      "expect": "Roadmap.md",
+      "why": "an explicit .md is allowed"
+    },
+    {
+      "from": "Projects/Plan.md",
+      "target": "./Roadmap",
+      "expect": "Roadmap.md",
+      "why": "a leading ./ is stripped, not relative"
+    },
+    {
+      "from": "Inbox.md",
+      "target": "Café",
+      "expect": "Café.md",
+      "why": "NFD target matches NFC file name"
+    },
+    {
+      "from": "Inbox.md",
+      "target": "Diagram.png",
+      "expect": "attachments/Diagram.png",
+      "why": "tie on segments, lowest normalised path wins"
+    },
+    {
+      "from": "Inbox.md",
+      "target": "Diagram",
+      "expect": null,
+      "why": "no extension looks for pages only"
+    },
+    {
+      "from": "Inbox.md",
+      "target": "Missing Page",
+      "expect": null,
+      "why": "unresolved"
+    },
+    {
+      "from": "Projects/Plan.md",
+      "target": "",
+      "expect": "Projects/Plan.md",
+      "why": "empty target is the linking page"
+    }
+  ],
+  "write": [
+    {
+      "file": "Roadmap.md",
+      "expect": "Roadmap"
+    },
+    {
+      "file": "Projects/Roadmap.md",
+      "expect": "Projects/Roadmap"
+    },
+    {
+      "file": "Archive/Spec.md",
+      "expect": "Spec"
+    },
+    {
+      "file": "Projects/Atlas/Spec.md",
+      "expect": "Atlas/Spec"
+    },
+    {
+      "file": "Meeting Notes.md",
+      "expect": "Meeting Notes"
+    },
+    {
+      "file": "attachments/Diagram.png",
+      "expect": "Diagram.png"
+    },
+    {
+      "file": "Projects/Diagram.png",
+      "expect": "Projects/Diagram.png"
+    }
+  ]
+}

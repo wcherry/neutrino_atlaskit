@@ -1,0 +1,65 @@
+{
+  "type": "root",
+  "children": [
+    {
+      "type": "list",
+      "ordered": true,
+      "start": 3,
+      "spread": false,
+      "blockId": null,
+      "children": [
+        {
+          "type": "listItem",
+          "checked": null,
+          "spread": false,
+          "children": [
+            {
+              "type": "paragraph",
+              "blockId": null,
+              "children": [
+                {
+                  "type": "text",
+                  "value": "Third"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "checked": null,
+          "spread": false,
+          "children": [
+            {
+              "type": "paragraph",
+              "blockId": null,
+              "children": [
+                {
+                  "type": "text",
+                  "value": "Fourth"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "checked": null,
+          "spread": false,
+          "children": [
+            {
+              "type": "paragraph",
+              "blockId": null,
+              "children": [
+                {
+                  "type": "text",
+                  "value": "Fifth"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

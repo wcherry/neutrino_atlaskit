@@ -1,0 +1,31 @@
+{
+  "type": "root",
+  "children": [
+    {
+      "type": "blockquote",
+      "blockId": null,
+      "children": [
+        {
+          "type": "paragraph",
+          "blockId": null,
+          "children": [
+            {
+              "type": "text",
+              "value": "Quoted text\nover two lines."
+            }
+          ]
+        },
+        {
+          "type": "paragraph",
+          "blockId": null,
+          "children": [
+            {
+              "type": "text",
+              "value": "Second paragraph."
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

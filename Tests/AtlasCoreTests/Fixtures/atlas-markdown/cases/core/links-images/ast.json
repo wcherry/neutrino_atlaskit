@@ -1,0 +1,95 @@
+{
+  "type": "root",
+  "children": [
+    {
+      "type": "paragraph",
+      "blockId": null,
+      "children": [
+        {
+          "type": "text",
+          "value": "A "
+        },
+        {
+          "type": "link",
+          "url": "https://example.com",
+          "title": "Title",
+          "children": [
+            {
+              "type": "text",
+              "value": "link"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "value": " and "
+        },
+        {
+          "type": "image",
+          "url": "images/cat.png",
+          "title": null,
+          "alt": "alt text"
+        },
+        {
+          "type": "text",
+          "value": "."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "blockId": null,
+      "children": [
+        {
+          "type": "text",
+          "value": "Autolinks: "
+        },
+        {
+          "type": "link",
+          "url": "https://neutrino.app",
+          "title": null,
+          "children": [
+            {
+              "type": "text",
+              "value": "https://neutrino.app"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "value": ", "
+        },
+        {
+          "type": "link",
+          "url": "mailto:team@example.com",
+          "title": null,
+          "children": [
+            {
+              "type": "text",
+              "value": "team@example.com"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "value": " and "
+        },
+        {
+          "type": "link",
+          "url": "http://www.example.com",
+          "title": null,
+          "children": [
+            {
+              "type": "text",
+              "value": "www.example.com"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "value": "."
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,12 @@
+{
+  "type": "root",
+  "children": [
+    {
+      "type": "code",
+      "lang": null,
+      "meta": null,
+      "value": "indented code",
+      "blockId": null
+    }
+  ]
+}

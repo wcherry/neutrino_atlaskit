@@ -1,0 +1,99 @@
+{
+  "type": "root",
+  "children": [
+    {
+      "type": "heading",
+      "depth": 1,
+      "children": [
+        {
+          "type": "text",
+          "value": "Not a tag"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "blockId": null,
+      "children": [
+        {
+          "type": "tag",
+          "name": "start"
+        },
+        {
+          "type": "text",
+          "value": " is a tag, but these are not: a#b, x.#y, "
+        },
+        {
+          "type": "strong",
+          "children": [
+            {
+              "type": "text",
+              "value": "bold"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "value": "#z."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "blockId": null,
+      "children": [
+        {
+          "type": "text",
+          "value": "Numbers alone: #123 #2026"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "blockId": null,
+      "children": [
+        {
+          "type": "text",
+          "value": "Trailing slash: "
+        },
+        {
+          "type": "tag",
+          "name": "area"
+        },
+        {
+          "type": "text",
+          "value": "/ ends before the slash."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "blockId": null,
+      "children": [
+        {
+          "type": "inlineCode",
+          "value": "#code"
+        },
+        {
+          "type": "text",
+          "value": " and "
+        },
+        {
+          "type": "link",
+          "url": "https://example.com",
+          "title": null,
+          "children": [
+            {
+              "type": "text",
+              "value": "#link"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "value": " are not tags."
+        }
+      ]
+    }
+  ]
+}

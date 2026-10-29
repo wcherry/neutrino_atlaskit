@@ -1,0 +1,3 @@
+- [ ] Open task
+- [x] Done task
+- Plain item

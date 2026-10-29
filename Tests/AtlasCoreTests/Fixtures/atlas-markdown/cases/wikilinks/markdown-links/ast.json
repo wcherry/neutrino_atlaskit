@@ -1,0 +1,145 @@
+{
+  "type": "root",
+  "children": [
+    {
+      "type": "paragraph",
+      "blockId": null,
+      "children": [
+        {
+          "type": "text",
+          "value": "See "
+        },
+        {
+          "type": "link",
+          "url": "Plans/Roadmap.md",
+          "title": null,
+          "children": [
+            {
+              "type": "text",
+              "value": "the plan"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "value": ", "
+        },
+        {
+          "type": "link",
+          "url": "Roadmap.md#Phase%202",
+          "title": null,
+          "children": [
+            {
+              "type": "text",
+              "value": "a section"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "value": ", "
+        },
+        {
+          "type": "link",
+          "url": "Roadmap.md#^summary",
+          "title": null,
+          "children": [
+            {
+              "type": "text",
+              "value": "a block"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "value": " and "
+        },
+        {
+          "type": "link",
+          "url": "My Notes.md",
+          "title": null,
+          "children": [
+            {
+              "type": "text",
+              "value": "spaces"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "value": "."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "blockId": null,
+      "children": [
+        {
+          "type": "text",
+          "value": "External: "
+        },
+        {
+          "type": "link",
+          "url": "https://example.com/page.md",
+          "title": null,
+          "children": [
+            {
+              "type": "text",
+              "value": "site"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "value": ", "
+        },
+        {
+          "type": "link",
+          "url": "#local",
+          "title": null,
+          "children": [
+            {
+              "type": "text",
+              "value": "anchor"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "value": ", "
+        },
+        {
+          "type": "link",
+          "url": "/root.md",
+          "title": null,
+          "children": [
+            {
+              "type": "text",
+              "value": "absolute"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "value": ", "
+        },
+        {
+          "type": "link",
+          "url": "photo.png",
+          "title": null,
+          "children": [
+            {
+              "type": "text",
+              "value": "file"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "value": "."
+        }
+      ]
+    }
+  ]
+}
