@@ -1,0 +1,9 @@
+{
+  "type": "root",
+  "children": [
+    {
+      "type": "html",
+      "value": "<div>\nunclosed"
+    }
+  ]
+}

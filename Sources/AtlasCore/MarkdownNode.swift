@@ -20,7 +20,6 @@ public indirect enum MarkdownNode: Equatable, Sendable {
     case table(align: [TableAlignment?], blockId: String?, children: [MarkdownNode])
     case tableRow(children: [MarkdownNode])
     case tableCell(children: [MarkdownNode])
-    case definition(identifier: String, label: String?, url: String, title: String?)
     case footnoteDefinition(identifier: String, label: String?, children: [MarkdownNode])
     case yaml(value: String)
     case callout(calloutType: String, fold: CalloutFold?, title: [MarkdownNode]?, blockId: String?, children: [MarkdownNode])
@@ -35,8 +34,6 @@ public indirect enum MarkdownNode: Equatable, Sendable {
     case `break`
     case link(url: String, title: String?, children: [MarkdownNode])
     case image(url: String, title: String?, alt: String)
-    case linkReference(identifier: String, label: String?, referenceType: String, children: [MarkdownNode])
-    case imageReference(identifier: String, label: String?, referenceType: String, alt: String)
     case footnoteReference(identifier: String, label: String?)
     case wikiLink(WikiLinkReference)
     case embed(WikiLinkReference)
@@ -51,7 +48,7 @@ public indirect enum MarkdownNode: Equatable, Sendable {
              .list(_, _, _, _, let c), .listItem(_, _, let c), .table(_, _, let c), .tableRow(let c),
              .tableCell(let c), .footnoteDefinition(_, _, let c), .callout(_, _, _, _, let c),
              .emphasis(let c), .strong(let c), .delete(let c), .link(_, _, let c),
-             .linkReference(_, _, _, let c), .highlight(let c):
+             .highlight(let c):
             return c
         default:
             return []
@@ -109,7 +106,7 @@ public enum CalloutFold: String, Equatable, Sendable, Codable {
 extension MarkdownNode: Codable {
     private enum Key: String, CodingKey {
         case type, children, value, blockId, depth, ordered, start, spread, checked, lang, meta
-        case align, identifier, label, url, title, alt, referenceType, name, calloutType, fold
+        case align, identifier, label, url, title, alt, name, calloutType, fold
         case target, heading, alias
     }
 
@@ -147,8 +144,6 @@ extension MarkdownNode: Codable {
             self = .table(align: try c.decode([TableAlignment?].self, forKey: .align), blockId: try opt(.blockId), children: try kids())
         case "tableRow": self = .tableRow(children: try kids())
         case "tableCell": self = .tableCell(children: try kids())
-        case "definition":
-            self = .definition(identifier: try str(.identifier), label: try opt(.label), url: try str(.url), title: try opt(.title))
         case "footnoteDefinition":
             self = .footnoteDefinition(identifier: try str(.identifier), label: try opt(.label), children: try kids())
         case "yaml": self = .yaml(value: try str(.value))
@@ -164,12 +159,6 @@ extension MarkdownNode: Codable {
         case "break": self = .break
         case "link": self = .link(url: try str(.url), title: try opt(.title), children: try kids())
         case "image": self = .image(url: try str(.url), title: try opt(.title), alt: try str(.alt))
-        case "linkReference":
-            self = .linkReference(identifier: try str(.identifier), label: try opt(.label),
-                                  referenceType: try str(.referenceType), children: try kids())
-        case "imageReference":
-            self = .imageReference(identifier: try str(.identifier), label: try opt(.label),
-                                   referenceType: try str(.referenceType), alt: try str(.alt))
         case "footnoteReference": self = .footnoteReference(identifier: try str(.identifier), label: try opt(.label))
         case "wikiLink": self = .wikiLink(try ref())
         case "embed": self = .embed(try ref())
@@ -203,8 +192,6 @@ extension MarkdownNode: Codable {
         case .table(let a, let id, let k): try type("table"); try put(.align, a); try put(.blockId, id); try put(.children, k)
         case .tableRow(let k): try type("tableRow"); try put(.children, k)
         case .tableCell(let k): try type("tableCell"); try put(.children, k)
-        case .definition(let i, let l, let u, let t):
-            try type("definition"); try put(.identifier, i); try put(.label, l); try put(.url, u); try put(.title, t)
         case .footnoteDefinition(let i, let l, let k):
             try type("footnoteDefinition"); try put(.identifier, i); try put(.label, l); try put(.children, k)
         case .yaml(let v): try type("yaml"); try put(.value, v)
@@ -219,10 +206,6 @@ extension MarkdownNode: Codable {
         case .break: try type("break")
         case .link(let u, let t, let k): try type("link"); try put(.url, u); try put(.title, t); try put(.children, k)
         case .image(let u, let t, let a): try type("image"); try put(.url, u); try put(.title, t); try put(.alt, a)
-        case .linkReference(let i, let l, let r, let k):
-            try type("linkReference"); try put(.identifier, i); try put(.label, l); try put(.referenceType, r); try put(.children, k)
-        case .imageReference(let i, let l, let r, let a):
-            try type("imageReference"); try put(.identifier, i); try put(.label, l); try put(.referenceType, r); try put(.alt, a)
         case .footnoteReference(let i, let l): try type("footnoteReference"); try put(.identifier, i); try put(.label, l)
         case .wikiLink(let r): try type("wikiLink"); try ref(r)
         case .embed(let r): try type("embed"); try ref(r)
