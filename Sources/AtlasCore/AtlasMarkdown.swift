@@ -1,5 +1,22 @@
 import Foundation
 
+extension String {
+    /// Whether the string contains this ASCII byte. Far cheaper than Foundation's
+    /// `contains(_: String)`, which the type checker picks for a string literal and which
+    /// searches character by character.
+    func hasByte(_ byte: UInt8) -> Bool { utf8.contains(byte) }
+
+    /// Whether the string contains this ASCII byte twice in a row (`==`, `$$`).
+    func hasBytePair(_ byte: UInt8) -> Bool {
+        var previous: UInt8 = 0
+        for b in utf8 {
+            if b == byte && previous == byte { return true }
+            previous = b
+        }
+        return false
+    }
+}
+
 /// Rules of the Atlas Markdown dialect that more than one part of AtlasCore needs.
 public enum AtlasMarkdown {
     /// The spec this package implements. It must match the vendored corpus's manifest.

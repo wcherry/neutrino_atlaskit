@@ -13,14 +13,18 @@ public struct LinkResolver: Sendable {
         let isPage: Bool
     }
 
-    private let entries: [Entry]
+    /// Files grouped by the match key of their last path segment. Every candidate for a target
+    /// has the target's last segment, so resolution only looks at that group.
+    private let byName: [String: [Entry]]
 
     public init<Paths: Sequence>(files: Paths) where Paths.Element == String {
-        entries = files.map { path in
+        var byName: [String: [Entry]] = [:]
+        for path in files {
             let isPage = Self.isPageName(path)
             let key = AtlasMarkdown.matchKey(isPage ? String(path.dropLast(3)) : path)
-            return Entry(path: path, key: key, segments: path.split(separator: "/").count, isPage: isPage)
+            byName[Self.lastSegment(key), default: []].append(Entry(path: path, key: key, segments: path.split(separator: "/").count, isPage: isPage))
         }
+        self.byName = byName
     }
 
     /// The file `target` names, or nil when the link is unresolved. Where the link appears
@@ -34,7 +38,7 @@ public struct LinkResolver: Sendable {
         if wantsPage && Self.isPageName(t) { t = String(t.dropLast(3)) }
         let key = AtlasMarkdown.matchKey(t)
 
-        let hits = entries.filter { $0.isPage == wantsPage && ($0.key == key || $0.key.hasSuffix("/" + key)) }
+        let hits = (byName[Self.lastSegment(key)] ?? []).filter { $0.isPage == wantsPage && ($0.key == key || $0.key.hasSuffix("/" + key)) }
         if let exact = hits.first(where: { $0.key == key }) { return exact.path }
         return hits.min { a, b in
             a.segments != b.segments ? a.segments < b.segments : a.key.unicodeScalars.lexicographicallyPrecedes(b.key.unicodeScalars)
@@ -54,6 +58,10 @@ public struct LinkResolver: Sendable {
     }
 
     private static func isPageName(_ s: String) -> Bool { s.lowercased().hasSuffix(".md") }
+
+    private static func lastSegment(_ key: String) -> String {
+        key.split(separator: "/", omittingEmptySubsequences: false).last.map(String.init) ?? key
+    }
 
     private static func hasExtension(_ segment: String) -> Bool {
         guard let dot = segment.lastIndex(of: "."), dot != segment.startIndex else { return false }

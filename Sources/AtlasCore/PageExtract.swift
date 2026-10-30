@@ -82,7 +82,7 @@ public struct PageExtract: Equatable, Sendable, Codable {
     /// no scheme, not absolute or a bare fragment, and a path ending in `.md`.
     static func internalPageReference(_ url: String) -> WikiLinkReference? {
         if url.hasPrefix("/") || url.hasPrefix("#") { return nil }
-        if url.range(of: "^[A-Za-z][A-Za-z0-9+.-]*:", options: .regularExpression) != nil { return nil }
+        if url.hasByte(UInt8(ascii: ":")), url.range(of: "^[A-Za-z][A-Za-z0-9+.-]*:", options: .regularExpression) != nil { return nil }
 
         let parts = url.split(separator: "#", maxSplits: 1, omittingEmptySubsequences: false)
         guard let path = String(parts[0]).removingPercentEncoding, path.lowercased().hasSuffix(".md") else { return nil }
