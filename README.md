@@ -9,11 +9,12 @@ knowledge base. See the roadmap in
 
 | Module | What it is | Status |
 |---|---|---|
-| `AtlasCore` | Foundation, cmark-gfm and Yams only, so share extensions, widgets and App Intents can link it. Holds the Atlas Markdown tree (`MarkdownNode`), parser (`AtlasMarkdown.parse`), serializer (`MarkdownDocument`, `AtlasMarkdown.serializeCanonical`), page extraction (`PageExtract`, SPEC §6), link resolution (`LinkResolver`, SPEC §7) and the vault index (`VaultIndex`). | Parser, serializer and index done |
+| `AtlasCore` | Foundation, cmark-gfm and Yams only, so share extensions, widgets and App Intents can link it. Holds the Atlas Markdown tree (`MarkdownNode`), parser (`AtlasMarkdown.parse`), serializer (`MarkdownDocument`, `AtlasMarkdown.serializeCanonical`), page extraction (`PageExtract`, SPEC §6), link resolution (`LinkResolver`, SPEC §7), the vault index (`VaultIndex`) and sync (`Vault`, `VaultSync`). | Done, apart from the Drive adapter for sync |
 | `AtlasEditor` | The TextKit 2 editor, with AppKit and UIKit adapters | Not started |
 | `AtlasUI` | SwiftUI views shared by both apps | Not started |
 
-AtlasCore will later hold the sync engine.
+The Drive adapter for sync (HTTP, folders, and encryption with NeutrinoCrypto) comes next, and
+brings the first dependency on `NeutrinoShared`.
 
 ### How the parser works
 
@@ -118,6 +119,38 @@ Measured at 5,000 pages (~11 MB of Markdown) on an M-series Mac, release build:
 
 The roadmap's Phase 1 target is under 1 s to open and under 100 ms to search.
 `VaultIndexTests.testFiveThousandPages` holds the build to those bounds, on macOS and iOS.
+
+### Sync
+
+A vault on the device is a `Vault`: every file's content, its content at the last sync (the
+base of a three-way merge), and a sync record (Drive file id, base `content_version`, dirty and
+deleted flags). All local edits go through it. `SealedDiskStorage` keeps it on disk as sealed
+blobs with random names, plus a sealed journal of changes, so neither titles nor content
+appear on disk. Each change appends one small journal entry. A torn final entry, from a crash,
+is cut off on open; a wrong key throws and touches nothing.
+
+`VaultSync.sync()` is one pass against a `VaultRemote` (the Drive folder tree; neutrino#292
+records why names are real Drive names). It never discards a change:
+
+| Here | There | Result |
+|---|---|---|
+| edited | unchanged | pushed with `expectedVersion`; a 409 falls through to a merge |
+| unchanged | edited | pulled |
+| edited | edited | line-level three-way merge (`ThreeWayMerge`), pushed. If the same lines changed, the server's version keeps the page and this device's goes to `Title (conflicted copy 2026-10-29 1405).md` |
+| edited | deleted | uploaded again (an edit wins over a deletion) |
+| deleted | unchanged / edited | deleted on the server / pulled back |
+| moved | anything | the move follows; if both sides moved it, the server's path wins |
+
+Path collisions (Drive allows two files with one name) are resolved deterministically. The
+file with the smallest id keeps the path, and the others move to `Title (conflicted copy <id>).md`,
+so devices noticing at once agree rather than moving files back and forth. Every outcome is
+committed only after the server accepted it, so an interrupted pass resumes safely.
+
+`VaultSyncTests` runs a three-device property test with random edits, moves, deletions and
+interrupted syncs. Every device must converge to the server's state, and every line ever
+written must survive unless some device removed it. It runs 40 seeds in CI; it has passed
+3,000 seeds of 200 operations (`ATLAS_SYNC_SEEDS`, `ATLAS_SYNC_OPS`). At 5,000 files, a first
+sync takes 0.19 s and a pass with nothing to do 55 ms, against an in-memory server.
 
 ### In-place edits
 
