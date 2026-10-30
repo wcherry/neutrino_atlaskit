@@ -225,6 +225,25 @@ Two devices that create the same day's note before syncing end up with one page,
 adopts a file both sides created with the same content. That's why the default template is
 empty, and why a template shouldn't use what differs between devices, such as `{{time}}`.
 
+### Import and export
+
+`FolderSnapshot.read(folder)` reads a folder of Markdown and attachments, such as an Obsidian
+vault, leaving out:
+- hidden files and folders: `.obsidian`, `.trash`, `.git`;
+- symbolic links, so nothing outside the folder is read;
+- files over 100 MB, which it lists.
+
+`VaultWorkspace.importFiles(_:into:)` writes the files into the vault with their bytes
+unchanged. Atlas Markdown reads Obsidian's dialect as it is, and links resolve the way
+Obsidian resolves them, so nothing is rewritten.
+- A file that's already there with the same content is skipped.
+- A file with other content goes beside the existing one as `Name (imported).md`, so nothing
+  is overwritten, and importing the same folder twice adds nothing.
+- The report lists the wiki links that still resolve to nothing.
+
+`exportFiles()` is the vault, decrypted. `FolderSnapshot.write(to:)` writes it into a folder
+that must be new or empty, so an export never mixes with other files or overwrites them.
+
 ### The Drive adapter
 
 A vault is a Drive folder; `DriveVaultRemote.createVault(named:)` makes one. Pages and
