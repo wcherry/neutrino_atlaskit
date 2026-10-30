@@ -14,16 +14,21 @@ import PackageDescription
 //                tree, parser and serializer, extraction (§6), link resolution (§7) and the
 //                vault index, and later sync. Must stay linkable from share extensions,
 //                widgets and App Intents: no UI frameworks.
+//   AtlasDrive   Sync's transport: the vault on Neutrino Drive (HTTP, folders, and encryption
+//                with NeutrinoCrypto). Kept out of AtlasCore so the engine and everything else
+//                there stay testable without libsodium or a network.
 //   AtlasEditor  (later) the TextKit 2 editor, with AppKit and UIKit adapters.
 //   AtlasUI      (later) SwiftUI views shared by both apps.
 //
-// Identity, keys and crypto come from NeutrinoShared (../neutrino_shared_ios), which is added
-// as a dependency when sync needs it. NeutrinoShared must never depend on this package.
+// Identity, keys and crypto come from NeutrinoShared (../neutrino_shared_ios), consumed by local
+// path like every other Neutrino Apple client, so this repository sits beside it. NeutrinoShared
+// must never depend on this package.
 let package = Package(
     name: "AtlasKit",
     platforms: [.macOS(.v13), .iOS(.v16)],
     products: [
         .library(name: "AtlasCore", targets: ["AtlasCore"]),
+        .library(name: "AtlasDrive", targets: ["AtlasDrive"]),
     ],
     dependencies: [
         // The CommonMark + GFM base (SPEC §2): GitHub's cmark-gfm, as packaged by swiftlang. It is
@@ -33,6 +38,7 @@ let package = Package(
         .package(url: "https://github.com/swiftlang/swift-cmark", from: "0.9.0"),
         // Frontmatter is YAML (SPEC §4.1, §6).
         .package(url: "https://github.com/jpsim/Yams", from: "5.1.3"),
+        .package(path: "../neutrino_shared_ios"),
     ],
     targets: [
         .target(
@@ -42,6 +48,18 @@ let package = Package(
                 .product(name: "cmark-gfm-extensions", package: "swift-cmark"),
                 "Yams",
             ]
+        ),
+        .target(
+            name: "AtlasDrive",
+            dependencies: [
+                "AtlasCore",
+                .product(name: "NeutrinoCore", package: "neutrino_shared_ios"),
+                .product(name: "NeutrinoCrypto", package: "neutrino_shared_ios"),
+            ]
+        ),
+        .testTarget(
+            name: "AtlasDriveTests",
+            dependencies: ["AtlasDrive", .product(name: "NeutrinoCrypto", package: "neutrino_shared_ios")]
         ),
         .testTarget(
             name: "AtlasCoreTests",
