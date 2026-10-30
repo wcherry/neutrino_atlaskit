@@ -1,0 +1,15 @@
+{
+  "type": "root",
+  "children": [
+    {
+      "type": "paragraph",
+      "blockId": null,
+      "children": [
+        {
+          "type": "text",
+          "value": "Not math: $a\nb$"
+        }
+      ]
+    }
+  ]
+}

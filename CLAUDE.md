@@ -13,12 +13,14 @@ The shared Swift package of the Neutrino Atlas apps (macOS + iOS). Read the plat
 - **The web and Android implementations must produce identical results** for the same input.
   A behaviour that the corpus doesn't pin is a gap: add a case to the corpus rather than
   deciding it here.
-- **`AtlasCore` stays Foundation-only (plus Yams).** It must link from share extensions,
+- **`AtlasCore` stays Foundation-only (plus cmark-gfm and Yams).** It must link from share extensions,
   widgets and App Intents, so no SwiftUI, AppKit or UIKit there.
 - **No plaintext leaves the device.** Titles, content, tags and the link graph are resolved
   and indexed here, on the client. Nothing in this package sends them to the server
   unencrypted (roadmap, constraint 2).
 - **Encryption comes from `NeutrinoCrypto`.** Never add another E2EE implementation (root
   `CLAUDE.md`, rule 5).
+- **The parser reserves U+E000–U+E0FF** for its markers (see README). Any change to the
+  preprocessor must keep `ParserFuzzTests` green: no traps, and no lost characters.
 - Test on both platforms: `swift test`, plus `xcodebuild test -scheme AtlasKit` on an iOS
   simulator.

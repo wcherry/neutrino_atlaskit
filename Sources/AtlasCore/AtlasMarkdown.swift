@@ -3,7 +3,7 @@ import Foundation
 /// Rules of the Atlas Markdown dialect that more than one part of AtlasCore needs.
 public enum AtlasMarkdown {
     /// The spec this package implements. It must match the vendored corpus's manifest.
-    public static let specVersion = "1.0.0-draft"
+    public static let specVersion = "1.0.0-draft.3"
 
     /// The key two strings are compared by, for tags and link resolution: NFC, then
     /// case-folded (SPEC §4.4, §7). Display always keeps the original spelling.
@@ -28,5 +28,28 @@ public enum AtlasMarkdown {
         default:
             return false
         }
+    }
+}
+
+extension AtlasMarkdown {
+    /// Parses a page into its Atlas Markdown tree (SPEC §3, §4).
+    ///
+    /// cmark-gfm handles the CommonMark + GFM base; the Atlas extensions are layered around
+    /// it (see `SourcePreprocessor` and `ExtensionPasses`). Source positions are not part of
+    /// the tree.
+    public static func parse(_ source: String) -> MarkdownNode {
+        .root(children: parseLayout(source).map(\.node))
+    }
+
+    /// The top-level blocks of a page, in order, each with the 1-based source lines it
+    /// occupies. Frontmatter is the first block when present. Source preservation (§8.1)
+    /// is built on this.
+    static func parseLayout(_ source: String) -> [(node: MarkdownNode, lines: ClosedRange<Int>)] {
+        let prepared = SourcePreprocessor(source)
+        var blocks = ExtensionPasses(tokens: prepared.tokens).applyTopLevel(CMarkConverter.convertTopLevel(prepared.cmarkSource))
+        if let frontmatter = prepared.frontmatter {
+            blocks.insert((.yaml(value: frontmatter), 1...prepared.frontmatterLineCount), at: 0)
+        }
+        return blocks
     }
 }

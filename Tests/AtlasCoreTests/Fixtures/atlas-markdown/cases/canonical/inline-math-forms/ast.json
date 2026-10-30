@@ -1,0 +1,27 @@
+{
+  "type": "root",
+  "children": [
+    {
+      "type": "paragraph",
+      "blockId": null,
+      "children": [
+        {
+          "type": "inlineMath",
+          "value": "a $"
+        },
+        {
+          "type": "text",
+          "value": " and "
+        },
+        {
+          "type": "inlineMath",
+          "value": "x "
+        },
+        {
+          "type": "text",
+          "value": "."
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,40 @@
+{
+  "type": "root",
+  "children": [
+    {
+      "type": "thematicBreak"
+    },
+    {
+      "type": "paragraph",
+      "blockId": null,
+      "children": [
+        {
+          "type": "text",
+          "value": "Text"
+        }
+      ]
+    },
+    {
+      "type": "list",
+      "ordered": false,
+      "start": null,
+      "spread": false,
+      "blockId": null,
+      "children": [
+        {
+          "type": "listItem",
+          "checked": null,
+          "spread": false,
+          "children": [
+            {
+              "type": "thematicBreak"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "thematicBreak"
+    }
+  ]
+}

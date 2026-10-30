@@ -1,0 +1,23 @@
+{
+  "type": "root",
+  "children": [
+    {
+      "type": "paragraph",
+      "blockId": null,
+      "children": [
+        {
+          "type": "text",
+          "value": "Run "
+        },
+        {
+          "type": "inlineCode",
+          "value": "npm install"
+        },
+        {
+          "type": "text",
+          "value": " now."
+        }
+      ]
+    }
+  ]
+}

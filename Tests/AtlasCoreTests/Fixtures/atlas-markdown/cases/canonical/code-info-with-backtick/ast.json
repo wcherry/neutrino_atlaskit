@@ -1,0 +1,12 @@
+{
+  "type": "root",
+  "children": [
+    {
+      "type": "code",
+      "lang": "js",
+      "meta": "`x`",
+      "value": "code",
+      "blockId": null
+    }
+  ]
+}

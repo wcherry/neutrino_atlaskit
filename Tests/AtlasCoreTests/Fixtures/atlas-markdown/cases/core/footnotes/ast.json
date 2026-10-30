@@ -1,0 +1,37 @@
+{
+  "type": "root",
+  "children": [
+    {
+      "type": "paragraph",
+      "blockId": null,
+      "children": [
+        {
+          "type": "text",
+          "value": "A claim."
+        },
+        {
+          "type": "footnoteReference",
+          "identifier": "note1",
+          "label": "Note1"
+        }
+      ]
+    },
+    {
+      "type": "footnoteDefinition",
+      "identifier": "note1",
+      "label": "Note1",
+      "children": [
+        {
+          "type": "paragraph",
+          "blockId": null,
+          "children": [
+            {
+              "type": "text",
+              "value": "The source."
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

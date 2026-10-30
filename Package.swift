@@ -10,9 +10,10 @@ import PackageDescription
 //
 // Layers, added as each gets code:
 //
-//   AtlasCore    Foundation + Yams only. The Atlas Markdown tree, extraction (§6), link
-//                resolution (§7), and later the parser, serializer, index and sync. Must stay
-//                linkable from share extensions, widgets and App Intents: no UI frameworks.
+//   AtlasCore    Foundation, cmark-gfm and Yams only. The Atlas Markdown tree and parser,
+//                extraction (§6), link resolution (§7), and later the serializer, index and
+//                sync. Must stay linkable from share extensions, widgets and App Intents: no
+//                UI frameworks.
 //   AtlasEditor  (later) the TextKit 2 editor, with AppKit and UIKit adapters.
 //   AtlasUI      (later) SwiftUI views shared by both apps.
 //
@@ -25,11 +26,23 @@ let package = Package(
         .library(name: "AtlasCore", targets: ["AtlasCore"]),
     ],
     dependencies: [
+        // The CommonMark + GFM base (SPEC §2): GitHub's cmark-gfm, as packaged by swiftlang. It is
+        // used directly rather than through swift-markdown, which always enables a non-GFM
+        // table-spans extension and doesn't attach GFM's autolink extension. The Atlas extensions
+        // are layered on top in AtlasCore's parser.
+        .package(url: "https://github.com/swiftlang/swift-cmark", from: "0.9.0"),
         // Frontmatter is YAML (SPEC §4.1, §6).
         .package(url: "https://github.com/jpsim/Yams", from: "5.1.3"),
     ],
     targets: [
-        .target(name: "AtlasCore", dependencies: ["Yams"]),
+        .target(
+            name: "AtlasCore",
+            dependencies: [
+                .product(name: "cmark-gfm", package: "swift-cmark"),
+                .product(name: "cmark-gfm-extensions", package: "swift-cmark"),
+                "Yams",
+            ]
+        ),
         .testTarget(
             name: "AtlasCoreTests",
             dependencies: ["AtlasCore"],

@@ -1,0 +1,30 @@
+{
+  "type": "root",
+  "children": [
+    {
+      "type": "paragraph",
+      "blockId": null,
+      "children": [
+        {
+          "type": "text",
+          "value": "See"
+        },
+        {
+          "type": "link",
+          "url": "Note.",
+          "title": null,
+          "children": [
+            {
+              "type": "text",
+              "value": "^a.b"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "value": "."
+        }
+      ]
+    }
+  ]
+}

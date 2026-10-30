@@ -1,0 +1,30 @@
+{
+  "type": "root",
+  "children": [
+    {
+      "type": "paragraph",
+      "blockId": null,
+      "children": [
+        {
+          "type": "text",
+          "value": "Visit "
+        },
+        {
+          "type": "link",
+          "url": "http://www.example.com",
+          "title": null,
+          "children": [
+            {
+              "type": "text",
+              "value": "www.example.com"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "value": "."
+        }
+      ]
+    }
+  ]
+}

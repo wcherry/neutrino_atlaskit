@@ -1,0 +1,22 @@
+{
+  "type": "root",
+  "children": [
+    {
+      "type": "paragraph",
+      "blockId": null,
+      "children": [
+        {
+          "type": "link",
+          "url": "b c",
+          "title": "t\"q",
+          "children": [
+            {
+              "type": "text",
+              "value": "a"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
