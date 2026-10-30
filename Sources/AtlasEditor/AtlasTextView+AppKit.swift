@@ -28,9 +28,10 @@ public final class AtlasTextView: NSTextView {
     /// Called when a link is clicked (see `MarkdownEditing.shouldOpenLink`).
     public var onOpenLink: ((LinkTarget) -> Void)?
 
-    /// Suggestions for a wiki link being typed, from its text so far. Without it, typing `[[`
+    /// Suggestions for a wiki link being typed: pages from the text so far, or the named page's
+    /// headings once a `#` is typed (`LinkCompletionContext.page`). Without it, typing `[[`
     /// suggests nothing.
-    public var linkCompletions: ((String) -> [LinkCompletion])?
+    public var linkCompletions: ((LinkCompletionContext) -> [LinkCompletion])?
     private var offered: [LinkCompletion] = []
 
     public convenience init() { self.init(frame: .zero) }
@@ -105,7 +106,7 @@ public final class AtlasTextView: NSTextView {
     /// Typing inside `[[` opens the system completion list, narrowed as the typing goes on.
     private func offerLinkCompletions() {
         guard !hasMarkedText(), window != nil, let context = completionContext, let provider = linkCompletions else { return }
-        offered = provider(context.query)
+        offered = provider(context)
         if !offered.isEmpty { complete(nil) }
     }
 
@@ -113,7 +114,7 @@ public final class AtlasTextView: NSTextView {
     /// `completions(forPartialWordRange:indexOfSelectedItem:)`.
     public func currentLinkCompletions() -> [LinkCompletion] {
         guard let context = completionContext, let provider = linkCompletions else { return [] }
-        offered = provider(context.query)
+        offered = provider(context)
         return offered
     }
 
@@ -144,6 +145,27 @@ public final class AtlasTextView: NSTextView {
     public func acceptLinkCompletion(_ completion: LinkCompletion, in context: LinkCompletionContext? = nil) {
         guard let context = context ?? completionContext else { return }
         perform(MarkdownEditing.accept(completion, in: context, text: string), actionName: "Insert Link")
+    }
+
+    /// Selects the start of a heading or block on this page and scrolls it to the top, with a
+    /// brief highlight. False if the page has no such heading or block.
+    @discardableResult
+    public func reveal(_ anchor: EditorAnchor) -> Bool {
+        guard let range = syntax.anchor(heading: anchor.heading, blockId: anchor.blockId, in: string) else { return false }
+        let r = NSRange(location: range.lowerBound, length: range.count)
+        setSelectedRange(NSRange(location: range.lowerBound, length: 0))
+        scrollRangeToVisible(r)
+        // Scrolled into view it may sit at the bottom; a link's target reads better at the top.
+        if let layout = textLayoutManager, let content = textContentStorage,
+           let start = content.location(content.documentRange.location, offsetBy: range.lowerBound),
+           let upTo = NSTextRange(location: content.documentRange.location, end: start) {
+            layout.ensureLayout(for: upTo)
+            if let fragment = layout.textLayoutFragment(for: start) {
+                scroll(NSPoint(x: 0, y: max(0, fragment.layoutFragmentFrame.minY + textContainerOrigin.y - 8)))
+            }
+        }
+        if window != nil { showFindIndicator(for: r) }
+        return true
     }
 
     /// Follows the link at a character, if a click there should (see `shouldOpenLink`).

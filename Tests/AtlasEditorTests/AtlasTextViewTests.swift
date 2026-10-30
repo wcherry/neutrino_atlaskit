@@ -117,7 +117,8 @@ final class AtlasTextViewTests: XCTestCase {
     func testTypingAWikiLinkSuggestsPagesAndAcceptingClosesIt() {
         let view = make("")
         var queries: [String] = []
-        view.linkCompletions = { query in
+        view.linkCompletions = { context in
+            let query = context.query
             queries.append(query)
             return [LinkCompletion(title: "Plan", target: "Plan", detail: "Projects")].filter { query.isEmpty || $0.title.hasPrefix(query) }
         }
@@ -131,6 +132,24 @@ final class AtlasTextViewTests: XCTestCase {
         #endif
         XCTAssertEqual(queries.last, "Pl")
         XCTAssertEqual(content(view), "See [[Plan]]")
+    }
+
+    func testRevealingAHeadingSelectsItsStart() {
+        let view = make("# Top\n\n" + String(repeating: "Line\n\n", count: 80) + "## Far down\n\nText ^tail\n")
+        let heading = (content(view) as NSString).range(of: "## Far down").location
+        XCTAssertTrue(view.reveal(EditorAnchor(heading: "far down")))
+        XCTAssertEqual(selected(view), NSRange(location: heading, length: 0))
+        XCTAssertTrue(view.reveal(EditorAnchor(blockId: "tail")))
+        XCTAssertEqual(selected(view).location, (content(view) as NSString).range(of: "Text ^tail").location)
+        XCTAssertFalse(view.reveal(EditorAnchor(heading: "Nowhere")))
+    }
+
+    private func selected(_ view: AtlasTextView) -> NSRange {
+        #if canImport(AppKit) && !targetEnvironment(macCatalyst)
+        return view.selectedRange()
+        #else
+        return view.selectedRange
+        #endif
     }
 
     func testClickingALinkShownAsALinkOpensIt() {

@@ -30,7 +30,7 @@ public final class AtlasTextView: UITextView, UITextViewDelegate {
     public var onOpenLink: ((LinkTarget) -> Void)?
 
     /// Suggestions for a wiki link being typed, shown above the keyboard.
-    public var linkCompletions: ((String) -> [LinkCompletion])?
+    public var linkCompletions: ((LinkCompletionContext) -> [LinkCompletion])?
     private lazy var suggestionBar = LinkSuggestionBar { [weak self] in self?.acceptLinkCompletion($0) }
 
     public convenience init() { self.init(frame: .zero) }
@@ -110,7 +110,7 @@ public final class AtlasTextView: UITextView, UITextViewDelegate {
     public var currentLinkCompletions: [LinkCompletion] { suggestionBar.completions }
 
     private func updateSuggestions() {
-        let completions = completionContext.flatMap { context in linkCompletions?(context.query) } ?? []
+        let completions = completionContext.flatMap { context in linkCompletions?(context) } ?? []
         suggestionBar.completions = Array(completions.prefix(6))
         let wanted: UIView? = completions.isEmpty ? nil : suggestionBar
         if inputAccessoryView !== wanted {
@@ -124,6 +124,16 @@ public final class AtlasTextView: UITextView, UITextViewDelegate {
         guard let context = completionContext else { return }
         perform(MarkdownEditing.accept(completion, in: context, text: text))
         updateSuggestions()
+    }
+
+    /// Puts the cursor at the start of a heading or block on this page and scrolls to it.
+    /// False if the page has no such heading or block.
+    @discardableResult
+    public func reveal(_ anchor: EditorAnchor) -> Bool {
+        guard let range = syntax.anchor(heading: anchor.heading, blockId: anchor.blockId, in: text) else { return false }
+        selectedRange = NSRange(location: range.lowerBound, length: 0)
+        scrollRangeToVisible(NSRange(location: range.lowerBound, length: range.count))
+        return true
     }
 
     // MARK: Editing

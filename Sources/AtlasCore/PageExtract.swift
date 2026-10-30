@@ -32,6 +32,11 @@ public struct PageExtract: Equatable, Sendable, Codable {
     public struct Heading: Equatable, Sendable, Codable {
         public var depth: Int
         public var text: String
+
+        public init(depth: Int, text: String) {
+            self.depth = depth
+            self.text = text
+        }
     }
 
     /// Wiki links and internal markdown links, in document order, duplicates included.

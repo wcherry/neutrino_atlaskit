@@ -7,21 +7,26 @@ public struct AtlasEditorView {
     var mode: EditorMode
     var theme: EditorTheme
     var onOpenLink: ((LinkTarget) -> Void)?
-    var linkCompletions: ((String) -> [LinkCompletion])?
+    var linkCompletions: ((LinkCompletionContext) -> [LinkCompletion])?
+    var anchor: EditorAnchor?
 
-    /// `onOpenLink` is called when a link is clicked or tapped; `linkCompletions` suggests pages
-    /// while a `[[wiki link]]` is typed.
+    /// `onOpenLink` is called when a link is clicked or tapped; `linkCompletions` suggests pages,
+    /// and then headings, while a `[[wiki link]]` is typed. A new `anchor` is shown once, when
+    /// it's set: set it with the text of the page it's on.
     public init(text: Binding<String>, mode: EditorMode = .livePreview, theme: EditorTheme = EditorTheme(),
-                onOpenLink: ((LinkTarget) -> Void)? = nil, linkCompletions: ((String) -> [LinkCompletion])? = nil) {
+                onOpenLink: ((LinkTarget) -> Void)? = nil, linkCompletions: ((LinkCompletionContext) -> [LinkCompletion])? = nil,
+                anchor: EditorAnchor? = nil) {
         _text = text
         self.mode = mode
         self.theme = theme
         self.onOpenLink = onOpenLink
         self.linkCompletions = linkCompletions
+        self.anchor = anchor
     }
 
     public final class Coordinator {
         var text: Binding<String>
+        var revealed: UUID?
         init(text: Binding<String>) { self.text = text }
     }
 
@@ -34,6 +39,14 @@ public struct AtlasEditorView {
         view.linkCompletions = linkCompletions
         if view.mode != mode { view.mode = mode }
         if view.theme.fontSize != theme.fontSize { view.theme = theme }
+    }
+
+    /// Shows a new anchor, after the text is in place and laid out.
+    @MainActor
+    private func reveal(_ view: AtlasTextView, _ coordinator: Coordinator) {
+        guard let anchor, anchor.id != coordinator.revealed else { return }
+        coordinator.revealed = anchor.id
+        DispatchQueue.main.async { view.reveal(anchor) }
     }
 }
 
@@ -54,6 +67,7 @@ extension AtlasEditorView: NSViewRepresentable {
         guard let view = scroll.documentView as? AtlasTextView else { return }
         update(view, context.coordinator)
         if view.string != text { view.string = text }
+        reveal(view, context.coordinator)
     }
 }
 #else
@@ -72,6 +86,7 @@ extension AtlasEditorView: UIViewRepresentable {
     public func updateUIView(_ view: AtlasTextView, context: Context) {
         update(view, context.coordinator)
         if view.text != text { view.text = text }
+        reveal(view, context.coordinator)
     }
 }
 #endif

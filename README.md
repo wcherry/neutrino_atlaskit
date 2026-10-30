@@ -311,13 +311,21 @@ them through the text system so they're undoable:
   and by ⌘-click always. With the cursor in a link, a click edits it. The view calls
   `onOpenLink` with a `LinkTarget`; the app resolves wiki links with `LinkResolver` (and
   creates the page if none matches).
-- **Typing `[[`** suggests pages from `linkCompletions(query)`, which the app answers from its
+- **Typing `[[`** suggests pages from `linkCompletions(context)`, which the app answers from its
   index. On macOS that's the system completion list; on iOS it's a bar above the keyboard.
   Accepting inserts the link target and closes it with `]]`, unless it already was.
+- **After `[[Page#`** the context names the page (`LinkCompletionContext.page`, empty for
+  `[[#`, this page) and the app suggests its headings (`VaultIndex.headings(of:)`,
+  `matchingHeadings`). A heading goes into a link as `AtlasMarkdown.headingLinkText` writes it:
+  without `[`, `]`, `|` and `^`, which a link can't hold there.
+- **Following a heading link** (`[[Page#Heading]]`, `[[Page#^id]]`): the app opens the page and
+  passes an `EditorAnchor`. `AtlasTextView.reveal` finds it with `PageSyntax.anchor` (the first
+  heading whose link text matches, ignoring case; or the list item or line carrying `^id`), puts
+  the cursor there and scrolls it to the top.
 
 Smart quotes, dashes and other substitutions are off: they would change the Markdown.
 
-Not yet: the `/` menu, heading completion after `[[Page#`, rendered images, embeds and
+Not yet: the `/` menu, rendered images, embeds and
 checkboxes, and syntax highlighting inside code blocks.
 
 ## Building and testing

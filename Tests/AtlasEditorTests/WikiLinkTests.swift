@@ -38,10 +38,37 @@ final class WikiLinkTests: XCTestCase {
         XCTAssertEqual(context("![[Ima|")?.query, "Ima")
         XCTAssertEqual(context("[[Two words|]]")?.query, "Two words")
         XCTAssertNil(context("[[Done]] and |"))
-        XCTAssertNil(context("[[Page#Head|"), "headings aren't completed yet")
+        XCTAssertNil(context("[[Page#^blo|"), "a block reference has nothing to complete")
         XCTAssertNil(context("`[[code|`"))
         XCTAssertNil(context("[[one\ntwo|"))
         XCTAssertNil(context("plain|"))
+    }
+
+    func testAfterAHashTheHeadingIsCompleted() {
+        XCTAssertEqual(context("See [[Plan#Go|"), LinkCompletionContext(range: 11..<13, query: "Go", page: "Plan"))
+        XCTAssertEqual(context("[[ Projects/Plan #|"), LinkCompletionContext(range: 18..<18, query: "", page: "Projects/Plan"))
+        XCTAssertEqual(context("[[#Goa|"), LinkCompletionContext(range: 3..<6, query: "Goa", page: ""), "this page")
+        XCTAssertEqual(context("[[Plan#C# tips|")?.query, "C# tips", "a heading keeps its inner #")
+
+        let open = "See [[Plan#Go"
+        let edit = MarkdownEditing.accept(LinkCompletion(title: "Goals", target: "Goals"), in: context(open + "|")!, text: open)
+        XCTAssertEqual(edit.applied(to: open), "See [[Plan#Goals]]")
+    }
+
+    func testAnAnchorIsFoundByHeadingOrBlockId() {
+        let page = "# Plan\n\nIntro ^intro\n\n> ## Goals [v2]\n\n- one\n- two ^second\n\n## Goals\n"
+        let syntax = AtlasMarkdown.syntax(of: page)
+        func at(_ heading: String? = nil, _ block: String? = nil) -> String? {
+            syntax.anchor(heading: heading, blockId: block, in: page).map { (page as NSString).substring(with: NSRange(location: $0.lowerBound, length: $0.count)) }
+        }
+        XCTAssertEqual(at("plan"), "# Plan", "case doesn't matter")
+        XCTAssertEqual(at("Goals v2"), "## Goals [v2]", "brackets can't be in a link, so they're left out; the first match wins")
+        XCTAssertEqual(at("Goals"), "## Goals")
+        XCTAssertEqual(at(nil, "intro"), "Intro ^intro")
+        XCTAssertEqual(at(nil, "second"), "- two ^second", "an id on a list item names the item")
+        XCTAssertNil(at("Missing"))
+        XCTAssertNil(at(nil, "Intro"), "block ids are case-sensitive")
+        XCTAssertEqual(AtlasMarkdown.headingLinkText(" Goals  [v2] | ^x "), "Goals v2 x")
     }
 
     func testAcceptingClosesTheLinkOnce() {

@@ -154,6 +154,21 @@ final class VaultIndexTests: XCTestCase {
         XCTAssertEqual(try index.quickSwitch("zzz"), [])
     }
 
+    func testHeadingsForCompletion() throws {
+        let index = try self.index(["Plan.md": "# Plan\n\n## Goals\n\n> ### Goals!\n\n## Risks [open]\n\n## Next steps\n"])
+        let headings = try index.headings(of: "Plan.md")
+        XCTAssertEqual(headings.map(\.text), ["Plan", "Goals", "Goals!", "Risks [open]", "Next steps"])
+        XCTAssertEqual(headings.map(\.depth), [1, 2, 3, 2, 2])
+        XCTAssertEqual(try index.headings(of: "Missing.md"), [])
+
+        XCTAssertEqual(VaultIndex.matchingHeadings(headings, "").map(\.text), ["Plan", "Goals", "Goals!", "Risks [open]", "Next steps"])
+        XCTAssertEqual(VaultIndex.matchingHeadings(headings, "go").map(\.text), ["Goals", "Goals!"])
+        XCTAssertEqual(VaultIndex.matchingHeadings(headings, "nst").map(\.text), ["Next steps"])
+        XCTAssertEqual(VaultIndex.matchingHeadings(headings, "risks open").map(\.text), ["Risks [open]"], "matched as a link writes it")
+        let twice = headings + [PageExtract.Heading(depth: 3, text: "goals")]
+        XCTAssertEqual(VaultIndex.matchingHeadings(twice, "goals").map(\.text), ["Goals", "Goals!"], "a heading a link can't tell apart is offered once")
+    }
+
     // MARK: Snapshots
 
     func testSealedSnapshotRoundTrip() throws {
