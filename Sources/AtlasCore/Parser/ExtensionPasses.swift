@@ -14,6 +14,11 @@ import Foundation
 ///    are merged.
 struct ExtensionPasses {
     let tokens: [SourcePreprocessor.Token]
+    /// The wiki link and embed tokens that became nodes, in tree order. Those left in code or
+    /// link text don't.
+    let materialized = TokenLog()
+
+    final class TokenLog { var indices: [Int] = [] }
 
     func apply(_ root: MarkdownNode) -> MarkdownNode {
         restore(block(root))
@@ -163,8 +168,8 @@ struct ExtensionPasses {
             }
             let node: MarkdownNode
             switch tokens[index] {
-            case .wikiLink(let ref, _): node = .wikiLink(ref)
-            case .embed(let ref, _): node = .embed(ref)
+            case .wikiLink(let ref, _): node = .wikiLink(ref); materialized.indices.append(index)
+            case .embed(let ref, _): node = .embed(ref); materialized.indices.append(index)
             case .inlineMath(let value, _): node = .inlineMath(value: value)
             case .literal:
                 // Left as a placeholder: the restore pass turns it back into the character, once.

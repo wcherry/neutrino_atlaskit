@@ -19,6 +19,14 @@ enum CMarkConverter {
     static func convertTopLevel(_ source: String) -> [(node: MarkdownNode, lines: ClosedRange<Int>)] {
         Conversion(source: source).run()
     }
+
+    /// The same, plus where each task item starts (1-based line, and 1-based byte column of its
+    /// list marker), in tree order. Toggling a checkbox in place (SPEC §8.2) uses these.
+    static func convertTopLevelWithTasks(_ source: String) -> (blocks: [(node: MarkdownNode, lines: ClosedRange<Int>)], tasks: [(line: Int, column: Int)]) {
+        let conversion = Conversion(source: source)
+        let blocks = conversion.run()
+        return (blocks, conversion.tasks.positions)
+    }
 }
 
 /// One conversion. It keeps the source's lines because cmark's end lines are not always where
@@ -27,6 +35,9 @@ private struct Conversion {
     private typealias Node = UnsafeMutablePointer<cmark_node>
     let source: String
     let lines: [String]
+    let tasks = TaskLog()
+
+    final class TaskLog { var positions: [(line: Int, column: Int)] = [] }
 
     init(source: String) {
         self.source = source
@@ -147,8 +158,26 @@ private struct Conversion {
             return .list(ordered: ordered, start: ordered ? Int(cmark_node_get_list_start(n)) : nil,
                          spread: spread, blockId: nil, children: items.map(node))
         case "item", "tasklist":
-            let checked: Bool? = type == "tasklist" ? cmark_gfm_extensions_get_tasklist_item_checked(n) : nil
-            return .listItem(checked: checked, spread: isSpread(n), children: children(n))
+            // The checkbox is read from the source, not from cmark-gfm, which gets it wrong in two
+            // ways: it reports `- [ ] see [x]` as checked (it searches the whole line for `[x]`),
+            // and it misses tasks inside a blockquote altogether (it scans the line from column 0,
+            // `>` included).
+            let line = Int(cmark_node_get_start_line(n)), column = Int(cmark_node_get_start_column(n))
+            var kids = children(n)
+            var checked: Bool? = nil
+            if line >= 1, line <= lines.count, let box = CMarkConverter.checkbox(in: lines[line - 1], markerColumn: column) {
+                if type == "tasklist" {
+                    checked = box
+                } else if case .paragraph(let id, var inline)? = kids.first, case .text(let text)? = inline.first,
+                          let marker = text.range(of: #"^\[[ xX]\][ \t]+"#, options: .regularExpression) {
+                    checked = box
+                    let rest = String(text[marker.upperBound...])
+                    if rest.isEmpty { inline.removeFirst() } else { inline[0] = .text(value: rest) }
+                    kids[0] = .paragraph(blockId: id, children: inline)
+                }
+            }
+            if checked != nil { tasks.positions.append((line, column)) }
+            return .listItem(checked: checked, spread: isSpread(n), children: kids)
         case "code_block":
             let info = string(cmark_node_get_fence_info(n)).trimmingCharacters(in: .whitespaces)
             let value = blockValue(string(cmark_node_get_literal(n)))
@@ -261,5 +290,35 @@ private struct Conversion {
     /// SPEC §3.2: a footnote's identifier is its label lowercased.
     private func footnoteIdentifier(_ label: String) -> String {
         label.lowercased()
+    }
+}
+
+extension CMarkConverter {
+    /// The checkbox of a task item whose list marker starts at `markerColumn` (1-based bytes):
+    /// the marker, spaces, then `[ ]`, `[x]` or `[X]` followed by a space or tab. Nil if there is
+    /// none. In-place toggling (SPEC §8.2) finds the same character the same way.
+    static func checkbox(in line: String, markerColumn: Int) -> Bool? {
+        let bytes = Array(line.utf8)
+        guard let at = checkboxOffset(in: bytes, markerColumn: markerColumn),
+              at + 2 < bytes.count, bytes[at + 2] == UInt8(ascii: " ") || bytes[at + 2] == UInt8(ascii: "\t") else { return nil }
+        return bytes[at] != UInt8(ascii: " ")
+    }
+
+    /// The byte offset of the character between a task's brackets, given where its list marker
+    /// starts, or nil if the marker isn't followed by `[ ]`, `[x]` or `[X]`.
+    static func checkboxOffset(in bytes: [UInt8], markerColumn: Int) -> Int? {
+        var i = markerColumn - 1
+        guard i >= 0, i < bytes.count else { return nil }
+        if bytes[i] >= UInt8(ascii: "0") && bytes[i] <= UInt8(ascii: "9") {
+            while i < bytes.count, bytes[i] >= UInt8(ascii: "0"), bytes[i] <= UInt8(ascii: "9") { i += 1 }
+            guard i < bytes.count, bytes[i] == UInt8(ascii: ".") || bytes[i] == UInt8(ascii: ")") else { return nil }
+        } else {
+            guard [UInt8(ascii: "-"), UInt8(ascii: "+"), UInt8(ascii: "*")].contains(bytes[i]) else { return nil }
+        }
+        i += 1
+        while i < bytes.count, bytes[i] == UInt8(ascii: " ") || bytes[i] == UInt8(ascii: "\t") { i += 1 }
+        guard i + 2 < bytes.count, bytes[i] == UInt8(ascii: "["), bytes[i + 2] == UInt8(ascii: "]"),
+              [UInt8(ascii: " "), UInt8(ascii: "x"), UInt8(ascii: "X")].contains(bytes[i + 1]) else { return nil }
+        return i + 1
     }
 }

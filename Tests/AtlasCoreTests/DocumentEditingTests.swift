@@ -66,6 +66,23 @@ final class DocumentEditingTests: XCTestCase {
         XCTAssertEqual(doc.serialized(), "See [it][r].\n\n[r]: https://example.com\n\nEdited.\n")
     }
 
+    func testRemovingTheBlockBetweenTwoListsKeepsThemApart() {
+        var doc = MarkdownDocument(source: "- a\n\nBetween.\n\n- b\n")
+        XCTAssertTrue(doc.removeBlock(at: 1))
+        XCTAssertEqual(doc.serialized(), "- a\n\n* b\n")
+        XCTAssertEqual(doc.blocks.count, 2)
+    }
+
+    /// cmark-gfm leaves `[r]:d` as text right before a table. Rewriting the table separates
+    /// them, and `[r]:d` becomes a definition: the edit must report that, not claim exactness.
+    func testExactnessCoversTheWholePage() {
+        var doc = MarkdownDocument(source: "[r]:d\n\t[[P]]\n-|\n")
+        XCTAssertEqual(doc.blocks.count, 2)
+        let table = AtlasMarkdown.parse("| [[Q]] |\n|-|\n").children[0]
+        XCTAssertFalse(doc.replaceBlock(at: 1, with: table))
+        XCTAssertFalse(doc.isExact)
+    }
+
     func testAThematicBreakInsertedAtTheTopIsNotFrontmatter() {
         var doc = MarkdownDocument(source: "Text\n\n---\n")
         doc.insertBlock(.thematicBreak, at: 0)

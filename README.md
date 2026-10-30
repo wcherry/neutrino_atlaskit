@@ -85,6 +85,16 @@ unescaped only if the block still reads back the same. A handful of pathological
 from characters decoded out of unusual entities, have no exact canonical text. Edits report this
 (`replaceBlock` returns `false`) rather than saving a silent change.
 
+### In-place edits
+
+`setTask(at:checked:)` and `rewriteLinks` (renames, SPEC §7) change only the bytes of the
+construct (SPEC §8.2). A toggle changes the one character between the brackets. A rewrite
+changes a link's target or destination and keeps its alias, heading, inner whitespace and
+URL style. Each edit is checked by reparsing the whole page. If the bytes can't express it,
+the block is rewritten canonically instead, and the result says so (`EditResult.inPlace`).
+"Exact" (`EditResult.exact`, `MarkdownDocument.isExact`) always means the whole page's bytes
+parse to its tree. The in-repo fuzz test checks that this is never wrong.
+
 ## Building and testing
 
 ```bash

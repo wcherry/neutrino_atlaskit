@@ -10,11 +10,11 @@ import Foundation
 /// gaps, stays exactly as it was.
 public struct MarkdownDocument: Equatable, Sendable {
     /// The top-level blocks, frontmatter first when present.
-    public private(set) var blocks: [MarkdownNode]
+    public internal(set) var blocks: [MarkdownNode]
     /// `gaps[i]` comes before `blocks[i]`; the last gap follows the last block. A page with no
     /// blocks is all one gap.
-    private var gaps: [String]
-    private var blockText: [String]
+    var gaps: [String]
+    var blockText: [String]
     /// The line ending new text uses: the file's first one, or `\n`.
     public let lineEnding: String
 
@@ -74,22 +74,27 @@ public struct MarkdownDocument: Equatable, Sendable {
         return out
     }
 
-    /// Replaces a top-level block. Only that block's bytes change.
+    /// Replaces a top-level block. Only that block's bytes change, plus a blank line on either
+    /// side if there wasn't one.
     ///
-    /// Returns whether the written text parses back to exactly `node`. It is false only for
-    /// trees no canonical text can express, such as characters decoded from unusual entities
-    /// next to emphasis; the editor should tell the user rather than save silently.
+    /// Returns whether the whole page now parses back to `tree`, so the result is never
+    /// wrong about the page. It is false for trees no canonical text can express (SPEC §8.4),
+    /// and when the change alters how a neighbour reads (cmark-gfm leaves `[r]: x` as text
+    /// right before a table, and a new blank line makes it a definition). The editor should tell
+    /// the user rather than save silently.
     @discardableResult
     public mutating func replaceBlock(at index: Int, with node: MarkdownNode) -> Bool {
         blocks[index] = node
-        let (text, exact) = canonicalText(at: index)
-        blockText[index] = text
+        blockText[index] = canonicalText(at: index).0
         ensureBlankLines(around: index)
-        return exact
+        return isExact
     }
 
+    /// Whether the page's bytes parse to its tree.
+    public var isExact: Bool { AtlasMarkdown.parse(serialized()) == tree }
+
     /// Inserts a top-level block, separated from its neighbours by one blank line. Returns
-    /// whether the written text parses back to exactly `node` (see `replaceBlock`).
+    /// whether the page parses back to `tree` (see `replaceBlock`).
     @discardableResult
     public mutating func insertBlock(_ node: MarkdownNode, at index: Int) -> Bool {
         let blank = lineEnding + lineEnding
@@ -104,16 +109,29 @@ public struct MarkdownDocument: Equatable, Sendable {
         } else {
             gaps.insert(blank, at: index + 1)
         }
-        let (text, exact) = canonicalText(at: index)
-        blockText[index] = text
-        return exact
+        blockText[index] = canonicalText(at: index).0
+        if !isExact, index + 1 < blocks.count {
+            // The new block can change how the next one reads (a list after a list merges with
+            // it): rewrite that one canonically too, which alternates the marker.
+            blockText[index + 1] = canonicalText(at: index + 1).0
+        }
+        return isExact
     }
 
     /// Removes a top-level block, with the gap that followed it (or preceded it, at the end).
-    public mutating func removeBlock(at index: Int) {
+    /// Returns whether the page parses back to `tree` (see `replaceBlock`).
+    @discardableResult
+    public mutating func removeBlock(at index: Int) -> Bool {
         blocks.remove(at: index)
         blockText.remove(at: index)
         if index < blocks.count || index == 0 { gaps.remove(at: index + 1) } else { gaps.remove(at: index) }
+        if !isExact, index < blocks.count, index > 0 {
+            // Its neighbours now meet, and can read as one (two `-` lists merge): rewrite the
+            // one after canonically, which alternates the marker.
+            blockText[index] = canonicalText(at: index).0
+            ensureBlankLines(around: index)
+        }
+        return isExact
     }
 
     private func canonicalText(at index: Int) -> (String, Bool) {
