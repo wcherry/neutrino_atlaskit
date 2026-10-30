@@ -25,6 +25,14 @@ public final class AtlasTextView: NSTextView {
     /// Called after every change to the text, typed or programmatic.
     public var onTextChange: ((String) -> Void)?
 
+    /// Called when a link is clicked (see `MarkdownEditing.shouldOpenLink`).
+    public var onOpenLink: ((LinkTarget) -> Void)?
+
+    /// Suggestions for a wiki link being typed, from its text so far. Without it, typing `[[`
+    /// suggests nothing.
+    public var linkCompletions: ((String) -> [LinkCompletion])?
+    private var offered: [LinkCompletion] = []
+
     public convenience init() { self.init(frame: .zero) }
 
     override public convenience init(frame: NSRect) {
@@ -84,6 +92,66 @@ public final class AtlasTextView: NSTextView {
         super.didChangeText()
         restyle()
         onTextChange?(string)
+        offerLinkCompletions()
+    }
+
+    // MARK: Wiki links
+
+    private var completionContext: LinkCompletionContext? {
+        guard linkCompletions != nil, selection.isEmpty else { return nil }
+        return MarkdownEditing.linkCompletionContext(in: string, cursor: selection.lowerBound, syntax: syntax)
+    }
+
+    /// Typing inside `[[` opens the system completion list, narrowed as the typing goes on.
+    private func offerLinkCompletions() {
+        guard !hasMarkedText(), window != nil, let context = completionContext, let provider = linkCompletions else { return }
+        offered = provider(context.query)
+        if !offered.isEmpty { complete(nil) }
+    }
+
+    /// The completions for a wiki link being typed. Exposed for tests; the system list calls
+    /// `completions(forPartialWordRange:indexOfSelectedItem:)`.
+    public func currentLinkCompletions() -> [LinkCompletion] {
+        guard let context = completionContext, let provider = linkCompletions else { return [] }
+        offered = provider(context.query)
+        return offered
+    }
+
+    override public var rangeForUserCompletion: NSRange {
+        guard let context = completionContext else { return super.rangeForUserCompletion }
+        return NSRange(location: context.range.lowerBound, length: context.range.count)
+    }
+
+    override public func completions(forPartialWordRange charRange: NSRange, indexOfSelectedItem index: UnsafeMutablePointer<Int>) -> [String]? {
+        guard completionContext != nil else { return super.completions(forPartialWordRange: charRange, indexOfSelectedItem: index) }
+        index.pointee = 0
+        return offered.map { c in c.detail.map { "\(c.title) — \($0)" } ?? c.title }
+    }
+
+    override public func insertCompletion(_ word: String, forPartialWordRange charRange: NSRange, movement: Int, isFinal flag: Bool) {
+        guard let context = completionContext else {
+            return super.insertCompletion(word, forPartialWordRange: charRange, movement: movement, isFinal: flag)
+        }
+        // Only a final choice by Return, Tab or click inserts: arrowing through the list
+        // previews nothing, and Escape leaves the typed text as it was.
+        guard flag, movement != NSCancelTextMovement, movement != NSOtherTextMovement || !word.isEmpty else { return }
+        let shown = offered.map { c in c.detail.map { "\(c.title) — \($0)" } ?? c.title }
+        guard let i = shown.firstIndex(of: word) else { return }
+        acceptLinkCompletion(offered[i], in: context)
+    }
+
+    /// Inserts a suggestion for the wiki link being typed.
+    public func acceptLinkCompletion(_ completion: LinkCompletion, in context: LinkCompletionContext? = nil) {
+        guard let context = context ?? completionContext else { return }
+        perform(MarkdownEditing.accept(completion, in: context, text: string), actionName: "Insert Link")
+    }
+
+    /// Follows the link at a character, if a click there should (see `shouldOpenLink`).
+    @discardableResult
+    public func openLink(at index: Int, commandKey: Bool) -> Bool {
+        guard let onOpenLink, let target = MarkdownEditing.shouldOpenLink(at: index, in: syntax, selection: selection, mode: mode, commandKey: commandKey) else { return false }
+        onOpenLink(target)
+        return true
     }
 
     override public func setSelectedRanges(_ ranges: [NSValue], affinity: NSSelectionAffinity, stillSelecting: Bool) {
@@ -160,10 +228,17 @@ public final class AtlasTextView: NSTextView {
         }
     }
 
-    /// A click on a checkbox ticks it, without moving the cursor.
+    /// A click on a checkbox ticks it, without moving the cursor. A click on a link follows it
+    /// (with ⌘, or in Live Preview when the cursor isn't in it).
     override public func mouseDown(with event: NSEvent) {
-        if event.clickCount == 1, event.modifierFlags.intersection([.shift, .command, .option, .control]).isEmpty {
-            let index = characterIndexForInsertion(at: convert(event.locationInWindow, from: nil))
+        let modifiers = event.modifierFlags.intersection([.shift, .command, .option, .control])
+        if event.clickCount == 1, modifiers.isEmpty || modifiers == .command {
+            let point = convert(event.locationInWindow, from: nil)
+            let index = characterIndex(forInsertionAt: point)
+            if openLink(at: index, commandKey: modifiers == .command) { return }
+        }
+        if event.clickCount == 1, modifiers.isEmpty {
+            let index = characterIndex(forInsertionAt: convert(event.locationInWindow, from: nil))
             if let edit = MarkdownEditing.toggleTask(at: index, in: string, syntax: syntax) {
                 let keep = selectedRange()
                 perform(edit, actionName: "Toggle Task")
@@ -172,6 +247,16 @@ public final class AtlasTextView: NSTextView {
             }
         }
         super.mouseDown(with: event)
+    }
+
+    /// The character under a point (in the view's coordinates), rather than the insertion point
+    /// nearest it: a click on the right half of a link's last character is still on the link,
+    /// and a click past the end of a line is on nothing.
+    private func characterIndex(forInsertionAt point: NSPoint) -> Int {
+        guard let window else { return characterIndexForInsertion(at: point) }
+        let screen = window.convertPoint(toScreen: convert(point, to: nil))
+        let index = characterIndex(for: screen)
+        return index == NSNotFound ? characterIndexForInsertion(at: point) : index
     }
 
     /// The view in a scroll view, ready to put in a window.

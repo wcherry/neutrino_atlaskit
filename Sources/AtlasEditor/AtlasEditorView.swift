@@ -6,11 +6,18 @@ public struct AtlasEditorView {
     @Binding var text: String
     var mode: EditorMode
     var theme: EditorTheme
+    var onOpenLink: ((LinkTarget) -> Void)?
+    var linkCompletions: ((String) -> [LinkCompletion])?
 
-    public init(text: Binding<String>, mode: EditorMode = .livePreview, theme: EditorTheme = EditorTheme()) {
+    /// `onOpenLink` is called when a link is clicked or tapped; `linkCompletions` suggests pages
+    /// while a `[[wiki link]]` is typed.
+    public init(text: Binding<String>, mode: EditorMode = .livePreview, theme: EditorTheme = EditorTheme(),
+                onOpenLink: ((LinkTarget) -> Void)? = nil, linkCompletions: ((String) -> [LinkCompletion])? = nil) {
         _text = text
         self.mode = mode
         self.theme = theme
+        self.onOpenLink = onOpenLink
+        self.linkCompletions = linkCompletions
     }
 
     public final class Coordinator {
@@ -23,6 +30,8 @@ public struct AtlasEditorView {
     @MainActor
     private func update(_ view: AtlasTextView, _ coordinator: Coordinator) {
         coordinator.text = $text
+        view.onOpenLink = onOpenLink
+        view.linkCompletions = linkCompletions
         if view.mode != mode { view.mode = mode }
         if view.theme.fontSize != theme.fontSize { view.theme = theme }
     }

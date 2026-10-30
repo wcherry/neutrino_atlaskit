@@ -26,6 +26,13 @@ public final class AtlasTextView: UITextView, UITextViewDelegate {
     /// Called after every change to the text, typed or programmatic.
     public var onTextChange: ((String) -> Void)?
 
+    /// Called when a link is tapped (see `MarkdownEditing.shouldOpenLink`).
+    public var onOpenLink: ((LinkTarget) -> Void)?
+
+    /// Suggestions for a wiki link being typed, shown above the keyboard.
+    public var linkCompletions: ((String) -> [LinkCompletion])?
+    private lazy var suggestionBar = LinkSuggestionBar { [weak self] in self?.acceptLinkCompletion($0) }
+
     public convenience init() { self.init(frame: .zero) }
 
     public convenience init(frame: CGRect) {
@@ -83,11 +90,40 @@ public final class AtlasTextView: UITextView, UITextViewDelegate {
     public func textViewDidChange(_ textView: UITextView) {
         restyle()
         onTextChange?(text)
+        updateSuggestions()
     }
 
     public func textViewDidChangeSelection(_ textView: UITextView) {
         guard markedTextRange == nil else { return }
         styling.selectionChanged(textStorage, to: selection)
+        updateSuggestions()
+    }
+
+    // MARK: Wiki links
+
+    private var completionContext: LinkCompletionContext? {
+        guard linkCompletions != nil, selection.isEmpty else { return nil }
+        return MarkdownEditing.linkCompletionContext(in: text, cursor: selection.lowerBound, syntax: syntax)
+    }
+
+    /// What the suggestion bar offers right now.
+    public var currentLinkCompletions: [LinkCompletion] { suggestionBar.completions }
+
+    private func updateSuggestions() {
+        let completions = completionContext.flatMap { context in linkCompletions?(context.query) } ?? []
+        suggestionBar.completions = Array(completions.prefix(6))
+        let wanted: UIView? = completions.isEmpty ? nil : suggestionBar
+        if inputAccessoryView !== wanted {
+            inputAccessoryView = wanted
+            reloadInputViews()
+        }
+    }
+
+    /// Inserts a suggestion for the wiki link being typed.
+    public func acceptLinkCompletion(_ completion: LinkCompletion) {
+        guard let context = completionContext else { return }
+        perform(MarkdownEditing.accept(completion, in: context, text: text))
+        updateSuggestions()
     }
 
     // MARK: Editing
@@ -141,12 +177,67 @@ public final class AtlasTextView: UITextView, UITextViewDelegate {
         }
     }
 
-    /// A tap on a checkbox ticks it.
+    /// A tap on a checkbox ticks it; a tap on a link shown as a link follows it.
     @objc private func tapped(_ gesture: UITapGestureRecognizer) {
         guard let position = closestPosition(to: gesture.location(in: self)) else { return }
         let offset = self.offset(from: beginningOfDocument, to: position)
         if let edit = MarkdownEditing.toggleTask(at: offset, in: text, syntax: syntax) {
             perform(edit)
+        } else if let onOpenLink, let target = MarkdownEditing.shouldOpenLink(at: offset, in: syntax, selection: tapSelection, mode: mode, commandKey: false) {
+            onOpenLink(target)
+        }
+    }
+
+    /// The selection before the tap moved it: whether the link showed as a link is decided by
+    /// where the cursor was.
+    private var tapSelection = 0..<0
+
+    override public func touchesBegan(_ touches: Set<UITouch>, with event: UIEvent?) {
+        tapSelection = selection
+        super.touchesBegan(touches, with: event)
+    }
+}
+/// The wiki-link suggestions above the keyboard: a row of buttons, one per page.
+final class LinkSuggestionBar: UIInputView {
+    var completions: [LinkCompletion] = [] { didSet { if completions != oldValue { rebuild() } } }
+    private let accept: (LinkCompletion) -> Void
+    private let stack = UIStackView()
+
+    init(accept: @escaping (LinkCompletion) -> Void) {
+        self.accept = accept
+        super.init(frame: CGRect(x: 0, y: 0, width: 320, height: 44), inputViewStyle: .keyboard)
+        autoresizingMask = .flexibleWidth
+        let scroll = UIScrollView()
+        scroll.showsHorizontalScrollIndicator = false
+        scroll.translatesAutoresizingMaskIntoConstraints = false
+        stack.axis = .horizontal
+        stack.spacing = 8
+        stack.translatesAutoresizingMaskIntoConstraints = false
+        addSubview(scroll)
+        scroll.addSubview(stack)
+        NSLayoutConstraint.activate([
+            scroll.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 8),
+            scroll.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -8),
+            scroll.topAnchor.constraint(equalTo: topAnchor),
+            scroll.bottomAnchor.constraint(equalTo: bottomAnchor),
+            stack.leadingAnchor.constraint(equalTo: scroll.contentLayoutGuide.leadingAnchor),
+            stack.trailingAnchor.constraint(equalTo: scroll.contentLayoutGuide.trailingAnchor),
+            stack.centerYAnchor.constraint(equalTo: scroll.centerYAnchor),
+        ])
+    }
+
+    required init?(coder: NSCoder) { fatalError("not used from a storyboard") }
+
+    private func rebuild() {
+        stack.arrangedSubviews.forEach { $0.removeFromSuperview() }
+        for completion in completions {
+            var config = UIButton.Configuration.gray()
+            config.title = completion.title
+            config.subtitle = completion.detail
+            config.cornerStyle = .capsule
+            let button = UIButton(configuration: config, primaryAction: UIAction { [weak self] _ in self?.accept(completion) })
+            button.accessibilityLabel = "Link to \(completion.title)"
+            stack.addArrangedSubview(button)
         }
     }
 }

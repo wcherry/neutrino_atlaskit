@@ -243,11 +243,18 @@ them through the text system so they're undoable:
 - Clicking or tapping a checkbox, or **⌘↩**, ticks a task by changing the one character
   between the brackets (SPEC §8.2).
 - **⌘B**, **⌘I** and **⌘E** wrap or unwrap the selection in `**`, `_` or a backtick.
+- **Links** are followed by a click when they show as links (Live Preview, cursor elsewhere),
+  and by ⌘-click always. With the cursor in a link, a click edits it. The view calls
+  `onOpenLink` with a `LinkTarget`; the app resolves wiki links with `LinkResolver` (and
+  creates the page if none matches).
+- **Typing `[[`** suggests pages from `linkCompletions(query)`, which the app answers from its
+  index. On macOS that's the system completion list; on iOS it's a bar above the keyboard.
+  Accepting inserts the link target and closes it with `]]`, unless it already was.
 
 Smart quotes, dashes and other substitutions are off: they would change the Markdown.
 
-Not yet: the `/` menu, wiki-link autocomplete, rendered images, embeds and checkboxes, and
-syntax highlighting inside code blocks.
+Not yet: the `/` menu, heading completion after `[[Page#`, rendered images, embeds and
+checkboxes, and syntax highlighting inside code blocks.
 
 ## Building and testing
 
