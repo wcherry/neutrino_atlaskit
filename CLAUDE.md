@@ -25,6 +25,10 @@ The shared Swift package of the Neutrino Atlas apps (macOS + iOS). Read the plat
 - **Encryption comes from `NeutrinoCrypto`.** Never add another E2EE implementation (root
   `CLAUDE.md`, rule 5). The index is sealed through the `IndexSealer` protocol, which the app
   implements with NeutrinoCrypto. Tests may use CryptoKit; production code in AtlasCore may not.
+- **Apps change pages through `VaultWorkspace`, never `Vault` directly.** It keeps the index
+  current and holds back edits made during a sync pass (see README). `VaultSync.sync()` runs on
+  its caller's actor; keep the `isolation:` parameter on it and on every async helper it calls,
+  or a pass touches the vault off the main actor.
 - **Keep `VaultIndexTests.testFiveThousandPages` within the roadmap's bounds** (open < 1 s,
   search < 100 ms). If a change slows the parser or the index, measure in release before
   shipping.
