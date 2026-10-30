@@ -85,6 +85,14 @@ public final class DriveVaultRemote: VaultRemote {
         return folder.id
     }
 
+    /// The folders at the root of the user's Drive: where a vault can be chosen from. The root
+    /// has no id of its own; the user's id addresses it.
+    public static func rootFolders(userID: String, baseURL: URL, tokens: AccessTokenSource, session: URLSession = .shared) async throws -> [(id: String, name: String)] {
+        let http = HTTP(baseURL: baseURL, tokens: tokens, session: session)
+        let contents: FolderContentsDTO = try await http.json("GET", "/api/v1/drive/folders/\(userID)")
+        return contents.folders.map { ($0.id, $0.name) }.sorted { $0.name.localizedStandardCompare($1.name) == .orderedAscending }
+    }
+
     private var http: HTTP { HTTP(baseURL: baseURL, tokens: tokens, session: session) }
 
     // MARK: - VaultRemote

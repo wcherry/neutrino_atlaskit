@@ -9,8 +9,8 @@ knowledge base. See the roadmap in
 
 | Module | What it is | Status |
 |---|---|---|
-| `AtlasCore` | Foundation, cmark-gfm and Yams only, so share extensions, widgets and App Intents can link it. Holds the Atlas Markdown tree (`MarkdownNode`), parser (`AtlasMarkdown.parse`), serializer (`MarkdownDocument`, `AtlasMarkdown.serializeCanonical`), page extraction (`PageExtract`, SPEC §6), link resolution (`LinkResolver`, SPEC §7), the syntax map an editor styles from (`AtlasMarkdown.syntax(of:)`), the vault index (`VaultIndex`) and sync (`Vault`, `VaultSync`). | Done |
-| `AtlasDrive` | The Drive adapter for sync (`DriveVaultRemote`, a `VaultRemote`): HTTP against `/api/v1/drive`, the vault's folder tree, and encryption with `NeutrinoCrypto`. Depends on `NeutrinoCore` and `NeutrinoCrypto` from `../neutrino_shared_ios`. | Done |
+| `AtlasCore` | Foundation, cmark-gfm and Yams only, so share extensions, widgets and App Intents can link it. Holds the Atlas Markdown tree (`MarkdownNode`), parser (`AtlasMarkdown.parse`), serializer (`MarkdownDocument`, `AtlasMarkdown.serializeCanonical`), page extraction (`PageExtract`, SPEC §6), link resolution (`LinkResolver`, SPEC §7), the syntax map an editor styles from (`AtlasMarkdown.syntax(of:)`), the vault index (`VaultIndex`), sync (`Vault`, `VaultSync`), and `VaultWorkspace`, which ties them together for an app. | Done |
+| `AtlasDrive` | The Drive adapter for sync (`DriveVaultRemote`, a `VaultRemote`): HTTP against `/api/v1/drive`, the vault's folder tree, and encryption with `NeutrinoCrypto`. Also `DeviceSealer`, which seals a device's copy of a vault with a device key. Depends on `NeutrinoCore` and `NeutrinoCrypto` from `../neutrino_shared_ios`. | Done |
 | `AtlasEditor` | The TextKit 2 editor: `AtlasTextView` for AppKit and UIKit, `AtlasEditorView` for SwiftUI. Live Preview, list and quote continuation, indent and outdent, checkbox toggles, formatting commands. Its styling (`MarkdownStyler`) and commands (`MarkdownEditing`) are Foundation-only. Depends on AtlasCore only. | First version |
 | `AtlasUI` | SwiftUI views shared by both apps | Not started |
 
@@ -179,6 +179,30 @@ interrupted syncs. Every device must converge to the server's state, and every l
 written must survive unless some device removed it. It runs 40 seeds in CI; it has passed
 3,000 seeds of 200 operations (`ATLAS_SYNC_SEEDS`, `ATLAS_SYNC_OPS`). At 5,000 files, a first
 sync takes 0.19 s and a pass with nothing to do 55 ms, against an in-memory server.
+
+### The workspace
+
+An app opens a vault as a `VaultWorkspace` and does every page operation through it: reading,
+writing, creating, renaming, deleting, syncing. It keeps the index (`VaultIndex`) in step with
+the files. A rename rewrites the links to the page across the vault, through
+`MarkdownDocument.rewriteLinks`, so only the link bytes change.
+
+It lives on the main actor, like the UI. `VaultSync.sync()` takes the caller's isolation
+(`#isolation`), so a pass runs there too and only suspends at network calls. Without that, the
+pass would touch the vault off the main actor while the UI did on it.
+
+Two more rules close the races that remain:
+- **Edits during a pass are held back** and written when the pass ends. The pass commits each
+  file only after the server accepted it, so an edit slipped in under a push would be recorded
+  as synced, and a later pull would overwrite it.
+- **Moves and deletions wait** for the running pass to finish.
+
+`VaultWorkspaceTests` makes both races happen, with a remote that holds a push until the test
+releases it.
+
+A device's copy of a vault is a `SealedDiskStorage` sealed by `DeviceSealer`, which is
+NeutrinoCrypto's file encryption with a key the app keeps in its Keychain. That key isn't the
+account's keyring: losing it loses only this copy, which the next sync downloads again.
 
 ### The Drive adapter
 

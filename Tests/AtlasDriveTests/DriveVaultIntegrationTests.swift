@@ -80,6 +80,9 @@ final class DriveVaultIntegrationTests: XCTestCase {
     func testRoundTripIsEncryptedAndGuarded() async throws {
         let account = try await newAccount()
         let vault = try await DriveVaultRemote.createVault(named: "Atlas test vault", baseURL: server, tokens: account.token)
+        let roots = try await DriveVaultRemote.rootFolders(userID: account.keyring.userId, baseURL: server, tokens: account.token)
+        // Beside the folders the server makes for a new account (`Attachments`).
+        XCTAssertEqual(roots.first { $0.id == vault }?.name, "Atlas test vault")
         let drive = remote(account, vault: vault)
 
         let text = Data("# Secret roadmap\n\nThe plan.\n".utf8)

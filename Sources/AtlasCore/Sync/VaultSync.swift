@@ -94,8 +94,10 @@ public struct VaultSync {
         self.remote = remote
     }
 
+    /// Runs on the caller's actor (`isolation`), so an app calling it from the main actor reads
+    /// and writes the vault there, as its UI does. It suspends only at network calls.
     @discardableResult
-    public func sync() async throws -> SyncReport {
+    public func sync(isolation: isolated (any Actor)? = #isolation) async throws -> SyncReport {
         var report = SyncReport()
         let listing = try await resolvingDuplicatePaths(try await remote.list())
         var byID: [String: RemoteFile] = [:]
@@ -137,7 +139,7 @@ public struct VaultSync {
 
     // MARK: - Synced files
 
-    private func reconcile(_ record: SyncRecord, with file: RemoteFile, report: inout SyncReport) async throws {
+    private func reconcile(_ record: SyncRecord, with file: RemoteFile, report: inout SyncReport, isolation: isolated (any Actor)? = #isolation) async throws {
         var record = record
         if record.deleted {
             if file.version == record.baseVersion {
@@ -187,7 +189,7 @@ public struct VaultSync {
         }
     }
 
-    private func reconcileDeletedRemotely(_ record: SyncRecord, report: inout SyncReport) async throws {
+    private func reconcileDeletedRemotely(_ record: SyncRecord, report: inout SyncReport, isolation: isolated (any Actor)? = #isolation) async throws {
         if record.deleted || !record.dirty {
             try vault.forget(record.path)
             if !record.deleted { report.removed.append(record.path) }
@@ -204,14 +206,14 @@ public struct VaultSync {
 
     // MARK: - Transfers
 
-    private func pull(_ file: RemoteFile, into path: String, report: inout SyncReport) async throws {
+    private func pull(_ file: RemoteFile, into path: String, report: inout SyncReport, isolation: isolated (any Actor)? = #isolation) async throws {
         let (data, version) = try await remote.download(file.id)
         let record = SyncRecord(path: path, fileID: file.id, baseVersion: version, basePath: file.path, dirty: false)
         try vault.commit(record, content: data, base: Self.keepsBase(path) ? data : nil)
         report.updated.append(path)
     }
 
-    private func push(_ record: SyncRecord, expectedVersion: Int, report: inout SyncReport) async throws {
+    private func push(_ record: SyncRecord, expectedVersion: Int, report: inout SyncReport, isolation: isolated (any Actor)? = #isolation) async throws {
         guard let id = record.fileID, let data = try vault.content(at: record.path) else { return }
         let version = try await remote.replace(id, data: data, expectedVersion: expectedVersion)
         var record = record
@@ -221,7 +223,7 @@ public struct VaultSync {
         report.uploaded.append(record.path)
     }
 
-    private func upload(_ record: SyncRecord, report: inout SyncReport) async throws {
+    private func upload(_ record: SyncRecord, report: inout SyncReport, isolation: isolated (any Actor)? = #isolation) async throws {
         guard let data = try vault.content(at: record.path) else { return }
         let file = try await remote.create(at: record.path, data: data)
         let synced = SyncRecord(path: record.path, fileID: file.id, baseVersion: file.version, basePath: file.path, dirty: false)
@@ -231,7 +233,7 @@ public struct VaultSync {
 
     /// Both sides changed the file. Merge the text line by line and push the result; if that
     /// isn't possible, the server's version takes the page and this device's goes to a copy.
-    private func merge(_ record: SyncRecord, report: inout SyncReport) async throws {
+    private func merge(_ record: SyncRecord, report: inout SyncReport, isolation: isolated (any Actor)? = #isolation) async throws {
         guard let id = record.fileID, let local = try vault.content(at: record.path) else { return }
         for _ in 0..<3 {
             let (theirs, version) = try await remote.download(id)
@@ -273,7 +275,7 @@ public struct VaultSync {
     }
 
     /// The same path created here and elsewhere before either synced.
-    private func adoptOrKeepBoth(_ local: SyncRecord, _ file: RemoteFile, report: inout SyncReport) async throws {
+    private func adoptOrKeepBoth(_ local: SyncRecord, _ file: RemoteFile, report: inout SyncReport, isolation: isolated (any Actor)? = #isolation) async throws {
         let (theirs, version) = try await remote.download(file.id)
         let mine = try vault.content(at: local.path)
         if mine != theirs, let mine {
@@ -292,7 +294,7 @@ public struct VaultSync {
     /// lists several files at one path, the one with the smallest id keeps it and the others are
     /// moved to a name made from their id. Every device computes the same names, so devices that
     /// notice at the same time agree instead of moving files back and forth.
-    private func resolvingDuplicatePaths(_ listing: [RemoteFile]) async throws -> [RemoteFile] {
+    private func resolvingDuplicatePaths(_ listing: [RemoteFile], isolation: isolated (any Actor)? = #isolation) async throws -> [RemoteFile] {
         var byPath: [String: [RemoteFile]] = [:]
         for file in listing { byPath[file.path, default: []].append(file) }
         var out: [RemoteFile] = []
