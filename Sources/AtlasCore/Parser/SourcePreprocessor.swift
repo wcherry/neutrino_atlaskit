@@ -21,6 +21,8 @@ struct SourcePreprocessor {
     var cmarkSource: String
     /// The frontmatter value (§4.1), if the page has frontmatter.
     var frontmatter: String?
+    /// How many lines the frontmatter takes, both `---` lines included.
+    var frontmatterLineCount = 0
     /// Placeholder tokens, indexed by the number encoded in the placeholder.
     var tokens: [Token]
 
@@ -40,21 +42,32 @@ struct SourcePreprocessor {
         }
     }
 
-    // MARK: Marker characters (Unicode private use area)
+    // MARK: Marker characters
+    //
+    // Escape markers and the two ends of every placeholder are Unicode *punctuation* that
+    // cmark's own table also counts as punctuation (U+2E3C–U+2E42). The characters they stand
+    // for (`\#`, `[[`, `$`, …) are punctuation, and emphasis flanking (`*x*`, `_x_`) depends on
+    // whether a neighbour is punctuation. With letter-like markers, `*]*\^` would stop being
+    // emphasis. The digits inside a placeholder are private-use characters, which never touch
+    // a delimiter.
 
-    static let tokenStart: Unicode.Scalar = "\u{E000}"
-    static let tokenEnd: Unicode.Scalar = "\u{E001}"
+    static let tokenStart: Unicode.Scalar = "\u{2E3C}"
+    static let tokenEnd: Unicode.Scalar = "\u{2E3D}"
     static let digitBase: UInt32 = 0xE020          // U+E020…U+E029 encode the token's index
     static let mathInfo = "\u{E0FF}atlas-math"     // info string of a rewritten math block
 
     /// Escaped characters the Atlas extensions care about, and the marker each becomes.
     static let escapeMarkers: [Character: Unicode.Scalar] = [
-        "#": "\u{E011}", "=": "\u{E012}", "^": "\u{E013}", "[": "\u{E014}", "$": "\u{E015}",
+        "#": "\u{2E3E}", "=": "\u{2E3F}", "^": "\u{2E40}", "[": "\u{2E41}", "$": "\u{2E42}",
     ]
     static let escapedCharacter: [Unicode.Scalar: Character] =
         Dictionary(uniqueKeysWithValues: escapeMarkers.map { ($0.value, $0.key) })
 
-    static func isReserved(_ s: Unicode.Scalar) -> Bool { (0xE000...0xE0FF).contains(s.value) }
+    /// Characters the parser uses for its own bookkeeping. The user's own occurrences are
+    /// protected as literal tokens.
+    static func isReserved(_ s: Unicode.Scalar) -> Bool {
+        (0xE000...0xE0FF).contains(s.value) || (0x2E3C...0x2E42).contains(s.value)
+    }
 
     /// Reads the rest of a placeholder after its `tokenStart`: digits, then `tokenEnd`. Returns
     /// the token index, or nil (with the scalars it read) if the sequence is malformed, which
@@ -86,7 +99,7 @@ struct SourcePreprocessor {
         tokens = []
 
         var lines = Self.splitLines(text)
-        frontmatter = Self.liftFrontmatter(&lines)
+        frontmatter = Self.liftFrontmatter(&lines, lineCount: &frontmatterLineCount)
         cmarkSource = ""
         // Inline protection runs before math fencing so the fence's sentinel info string,
         // which is in the reserved range, isn't itself protected as a literal.
@@ -121,7 +134,7 @@ struct SourcePreprocessor {
 
     /// §4.1: `---` as the very first line, closed by `---` or `...`. Without a closing line
     /// there is no frontmatter.
-    static func liftFrontmatter(_ lines: inout [Line]) -> String? {
+    static func liftFrontmatter(_ lines: inout [Line], lineCount: inout Int) -> String? {
         func isLine(_ l: Line, _ marks: Set<String>) -> Bool {
             marks.contains(String(l.content.reversed().drop(while: { $0 == " " || $0 == "\t" }).reversed()))
         }
@@ -129,6 +142,7 @@ struct SourcePreprocessor {
         guard let close = lines.indices.dropFirst().first(where: { isLine(lines[$0], ["---", "..."]) }) else { return nil }
         let value = lines[1..<close].map(\.content).joined(separator: "\n")
         for i in 0...close { lines[i].content = "" }
+        lineCount = close + 1
         return value
     }
 

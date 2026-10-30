@@ -12,6 +12,11 @@ import cmark_gfm_extensions
 /// ordinary text characters. The later passes deal with them.
 enum CMarkConverter {
     static func convert(_ source: String) -> MarkdownNode {
+        .root(children: convertTopLevel(source).map(\.node))
+    }
+
+    /// The top-level blocks, each with the 1-based source lines its content occupies.
+    static func convertTopLevel(_ source: String) -> [(node: MarkdownNode, lines: ClosedRange<Int>)] {
         Conversion(source: source).run()
     }
 }
@@ -28,7 +33,7 @@ private struct Conversion {
         lines = SourcePreprocessor.splitLines(source).map(\.content)
     }
 
-    func run() -> MarkdownNode {
+    func run() -> [(node: MarkdownNode, lines: ClosedRange<Int>)] {
         cmark_gfm_core_extensions_ensure_registered()
         let parser = cmark_parser_new(CMARK_OPT_FOOTNOTES)!
         defer { cmark_parser_free(parser) }
@@ -38,7 +43,25 @@ private struct Conversion {
         source.withCString { cmark_parser_feed(parser, $0, strlen($0)) }
         let document = cmark_parser_finish(parser)!
         defer { cmark_node_free(document) }
-        return .root(children: topLevelInSourceOrder(document).map(node))
+        let top = topLevelInSourceOrder(document)
+        var blocks: [(node: MarkdownNode, lines: ClosedRange<Int>)] = top.enumerated().map { i, n in
+            let start = Int(cmark_node_get_start_line(n))
+            let next = i + 1 < top.count ? cmark_node_get_start_line(top[i + 1]) : nil
+            return (node(n), start...max(start, Int(contentEndLine(n, before: next))))
+        }
+        // cmark-gfm bug: when a table interrupts a paragraph, it splits off a new paragraph with
+        // no source position (line 0), and reports the table as starting where the paragraph
+        // did. The paragraph's lines are its own line count from there; the table follows.
+        for i in blocks.indices where blocks[i].lines.lowerBound == 0 {
+            let start = i + 1 < blocks.count ? blocks[i + 1].lines.lowerBound : (i > 0 ? blocks[i - 1].lines.upperBound + 1 : 1)
+            let count = blocks[i].node.plainTextForFlanking.filter { $0 == "\n" }.count + 1
+            blocks[i].lines = start...(start + count - 1)
+            if i + 1 < blocks.count {
+                let next = blocks[i + 1].lines
+                blocks[i + 1].lines = (start + count)...max(start + count, next.upperBound)
+            }
+        }
+        return blocks
     }
 
     /// cmark-gfm moves every footnote definition to the end of the document. SPEC §3.2 puts
@@ -190,14 +213,21 @@ private struct Conversion {
 
     /// Whether a blank line separates any two consecutive nodes.
     private func hasBlankBetween(_ nodes: [Node]) -> Bool {
-        zip(nodes, nodes.dropFirst()).contains { cmark_node_get_start_line($1) > contentEndLine($0) + 1 }
+        zip(nodes, nodes.dropFirst()).contains { a, b in
+            let next = cmark_node_get_start_line(b)
+            return next > contentEndLine(a, before: next) + 1
+        }
     }
 
-    /// The last line a node's content is on. cmark's end line for a container (a list item, or
-    /// a nested list) runs on through the blank lines after it, and a link reference definition
-    /// leaves no node at all. So step back from cmark's end line over blank source lines.
-    private func contentEndLine(_ n: Node) -> Int32 {
+    /// The last line a node's content is on. cmark's end line is not always right:
+    /// - for a container (a list item, or a nested list) it runs on through the blank lines after it;
+    /// - for a setext heading it is the end of the *next* block;
+    /// - a link reference definition leaves no node at all.
+    ///
+    /// So clamp it to before the next sibling's first line, then step back over blank source lines.
+    private func contentEndLine(_ n: Node, before nextStart: Int32? = nil) -> Int32 {
         var end = cmark_node_get_end_line(n)
+        if let nextStart { end = min(end, nextStart - 1) }
         let start = cmark_node_get_start_line(n)
         let depth = quoteDepth(n)
         while end > start, isBlank(line: end, insideQuotes: depth) { end -= 1 }

@@ -1,0 +1,51 @@
+{
+  "type": "root",
+  "children": [
+    {
+      "type": "paragraph",
+      "blockId": null,
+      "children": [
+        {
+          "type": "text",
+          "value": "Text"
+        },
+        {
+          "type": "footnoteReference",
+          "identifier": "n",
+          "label": "n"
+        },
+        {
+          "type": "text",
+          "value": "."
+        }
+      ]
+    },
+    {
+      "type": "footnoteDefinition",
+      "identifier": "n",
+      "label": "n",
+      "children": [
+        {
+          "type": "paragraph",
+          "blockId": null,
+          "children": [
+            {
+              "type": "text",
+              "value": "First."
+            }
+          ]
+        },
+        {
+          "type": "paragraph",
+          "blockId": null,
+          "children": [
+            {
+              "type": "text",
+              "value": "Second."
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

@@ -1,5 +1,5 @@
 {
-  "specVersion": "1.0.0-draft.2",
+  "specVersion": "1.0.0-draft.3",
   "cases": [
     {
       "id": "core/paragraphs-headings",
@@ -204,6 +204,54 @@
     {
       "id": "escapes/literal-triggers",
       "description": "An escaped character never starts an extension: tags, highlights, wiki links, math, block ids, callouts."
+    },
+    {
+      "id": "canonical/minimal-escaping",
+      "description": "Over-escaped input is written with only the escapes the tree needs: the leftmost character of a construct."
+    },
+    {
+      "id": "canonical/thematic-break-placement",
+      "description": "A thematic break is *** on the first line of the file and as the first line of a - item; --- elsewhere."
+    },
+    {
+      "id": "canonical/nested-emphasis",
+      "description": "An emphasis directly inside emphasis or strong is written with underscores."
+    },
+    {
+      "id": "canonical/character-references",
+      "description": "Whitespace that cannot be written literally is a decimal character reference, only where needed."
+    },
+    {
+      "id": "canonical/inline-math-forms",
+      "description": "$x$ when it reads back exactly, otherwise $$x$$."
+    },
+    {
+      "id": "canonical/code-info-with-backtick",
+      "description": "An info string containing a backtick needs a tilde fence."
+    },
+    {
+      "id": "canonical/empty-blockquote",
+      "description": "An empty blockquote is a lone >."
+    },
+    {
+      "id": "canonical/www-autolink-punctuation",
+      "description": "A bare www. link before punctuation stays bare; the punctuation after it is not escaped."
+    },
+    {
+      "id": "canonical/setext-multiline-heading",
+      "description": "A heading whose text spans lines is written setext."
+    },
+    {
+      "id": "canonical/footnote-definition-continuation",
+      "description": "A footnote definition writes its first block after the label and indents the rest four spaces."
+    },
+    {
+      "id": "canonical/link-destination-and-title",
+      "description": "A destination with a space goes in <...>; a quote in a title is escaped."
+    },
+    {
+      "id": "core/autolink-raw-entities",
+      "description": "Entity references stay undecoded in a bare extended autolink, in both url and text; canonical form writes it bare."
     }
   ],
   "resolve": [

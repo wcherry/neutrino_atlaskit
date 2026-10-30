@@ -9,11 +9,11 @@ knowledge base. See the roadmap in
 
 | Module | What it is | Status |
 |---|---|---|
-| `AtlasCore` | Foundation, cmark-gfm and Yams only, so share extensions, widgets and App Intents can link it. Holds the Atlas Markdown tree (`MarkdownNode`) and parser (`AtlasMarkdown.parse`), page extraction (`PageExtract`, SPEC §6) and link resolution (`LinkResolver`, SPEC §7). | Parser done; serializer next |
+| `AtlasCore` | Foundation, cmark-gfm and Yams only, so share extensions, widgets and App Intents can link it. Holds the Atlas Markdown tree (`MarkdownNode`), parser (`AtlasMarkdown.parse`), serializer (`MarkdownDocument`, `AtlasMarkdown.serializeCanonical`), page extraction (`PageExtract`, SPEC §6) and link resolution (`LinkResolver`, SPEC §7). | Parser and serializer done |
 | `AtlasEditor` | The TextKit 2 editor, with AppKit and UIKit adapters | Not started |
 | `AtlasUI` | SwiftUI views shared by both apps | Not started |
 
-AtlasCore will later hold the serializer, encrypted index and sync engine.
+AtlasCore will later hold the encrypted index and sync engine.
 
 ### How the parser works
 
@@ -64,13 +64,26 @@ scripts/sync-atlas-markdown-corpus.sh --check  # fail if the copy has drifted
 
 CI runs `--check` against `neutrino`'s `main`.
 
-`ConformanceCorpusTests` runs:
-- check P (parse);
-- check E (extraction), on both parsed input and the expected trees;
-- the tree-model round trip;
+`ConformanceCorpusTests` runs every check in SPEC §9:
+- P (parse);
+- R (save unedited, byte for byte);
+- C (canonical form, which parses back);
+- E (extraction);
 - the link-resolution and link-writing fixtures.
 
-Checks R and C (round-trip, canonical) arrive with the serializer.
+### How saving works
+
+`MarkdownDocument` holds a page as its top-level blocks plus the exact bytes of each block and of
+every gap between them (SPEC §8.1). Saving without edits gives back the file byte for byte. A
+replaced or inserted block is written in canonical form, in the file's own line endings. Everything
+else stays as it was: Obsidian tab indentation, reference definitions, unused footnotes.
+
+Canonical form (`AtlasMarkdown.serializeCanonical`, SPEC §8.3) escapes only what the tree needs.
+SPEC §8.3.1 defines that by parsing, so every implementation escapes the same characters. It
+starts with every candidate escaped, then unescapes candidates right to left, keeping each
+unescaped only if the block still reads back the same. A handful of pathological trees, built
+from characters decoded out of unusual entities, have no exact canonical text. Edits report this
+(`replaceBlock` returns `false`) rather than saving a silent change.
 
 ## Building and testing
 

@@ -6,11 +6,12 @@ import XCTest
 /// neutrino/specs/atlas-markdown/corpus by scripts/sync-atlas-markdown-corpus.sh.
 ///
 /// - **P**: parsing each `input.md` gives exactly `ast.json`.
+/// - **R**: a document opened from `input.md` and saved without edits gives back its exact bytes.
+/// - **C**: canonical serialization of `ast.json` gives `canonical.md` (or `input.md`), which
+///   parses back to `ast.json`.
 /// - **E**: extraction gives `extract.json`, both from the expected tree and from the parsed one.
 /// - The tree model reads and writes every expected tree exactly.
 /// - Link resolution and link writing match the vault fixture.
-///
-/// Checks R and C need the serializer, and arrive with it.
 final class ConformanceCorpusTests: XCTestCase {
     struct Manifest: Decodable {
         struct Case: Decodable { let id: String; let description: String }
@@ -74,6 +75,35 @@ final class ConformanceCorpusTests: XCTestCase {
                 if actual != expected {
                     XCTFail("\(c.id): parsed tree differs from ast.json\n\(Self.firstDifference(expected, actual))")
                 }
+            }
+        }
+    }
+
+    /// Check R: open and save without edits, byte for byte. The document's blocks must also be
+    /// the parsed tree, so preservation can't pass by ignoring the parser.
+    func testRoundTripWithoutEditsMatchesEveryCase() throws {
+        for c in try manifest().cases {
+            checkCase(c.id) {
+                let input = try String(contentsOf: Self.corpus.appendingPathComponent("cases/\(c.id)/input.md"), encoding: .utf8)
+                let document = MarkdownDocument(source: input)
+                XCTAssertEqual(document.serialized(), input, "\(c.id): saving without edits changed the bytes")
+                XCTAssertEqual(document.tree, try load(MarkdownNode.self, "cases/\(c.id)/ast.json"), "\(c.id): document tree")
+            }
+        }
+    }
+
+    /// Check C: canonical form, and that it parses back to the same tree.
+    func testCanonicalSerializationMatchesEveryCase() throws {
+        for c in try manifest().cases {
+            checkCase(c.id) {
+                let dir = Self.corpus.appendingPathComponent("cases/\(c.id)")
+                let canonicalURL = FileManager.default.fileExists(atPath: dir.appendingPathComponent("canonical.md").path)
+                    ? dir.appendingPathComponent("canonical.md") : dir.appendingPathComponent("input.md")
+                let expected = try String(contentsOf: canonicalURL, encoding: .utf8)
+                let tree = try load(MarkdownNode.self, "cases/\(c.id)/ast.json")
+                let written = AtlasMarkdown.serializeCanonical(tree)
+                XCTAssertEqual(written, expected, "\(c.id): canonical form")
+                XCTAssertEqual(AtlasMarkdown.parse(written), tree, "\(c.id): canonical form does not parse back to ast.json")
             }
         }
     }

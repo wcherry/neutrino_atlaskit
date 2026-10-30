@@ -1,0 +1,22 @@
+{
+  "type": "root",
+  "children": [
+    {
+      "type": "paragraph",
+      "blockId": null,
+      "children": [
+        {
+          "type": "link",
+          "url": "http://a.com/?x=1&amp;y=2",
+          "title": null,
+          "children": [
+            {
+              "type": "text",
+              "value": "http://a.com/?x=1&amp;y=2"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

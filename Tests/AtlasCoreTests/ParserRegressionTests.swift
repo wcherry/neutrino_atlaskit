@@ -2,6 +2,7 @@ import XCTest
 @testable import AtlasCore
 
 /// Regressions found by fuzzing and differential testing, beyond the conformance corpus.
+
 final class ParserRegressionTests: XCTestCase {
     private func text(_ source: String) -> String {
         func collect(_ n: MarkdownNode) -> String {
@@ -39,6 +40,19 @@ final class ParserRegressionTests: XCTestCase {
         XCTAssertEqual(text("\u{E000}^\n"), "\u{E000}^")
         XCTAssertEqual(text("a\u{E000}\u{E020}\u{E001}b\n"), "a\u{E000}\u{E020}\u{E001}b")
         XCTAssertEqual(text("`\u{E012}` \u{E011}#x\n"), "\u{E012} \u{E011}#x")
+        XCTAssertEqual(text("`\u{2E3E}` \u{2E3C}\u{E020}\u{2E3D} \u{2E41}#x\n"), "\u{2E3E} \u{2E3C}\u{E020}\u{2E3D} \u{2E41}#x")
+    }
+
+    /// Escape markers and placeholders flank like the punctuation they replace: an escaped
+    /// character or a wiki link next to `*` or `_` must not change what is emphasis.
+    func testMarkersFlankLikePunctuation() {
+        XCTAssertEqual(AtlasMarkdown.parse("*]*\\^\n"),
+                       .root(children: [.paragraph(blockId: nil, children: [.emphasis(children: [.text(value: "]")]), .text(value: "^")])]))
+        // As in `a*[x]*b`, a `*` between a letter and `[` can't open emphasis.
+        XCTAssertEqual(AtlasMarkdown.parse("a*[[x]]*b\n"),
+                       .root(children: [.paragraph(blockId: nil, children: [.text(value: "a*"), .wikiLink(WikiLinkReference(target: "x")), .text(value: "*b")])]))
+        XCTAssertEqual(AtlasMarkdown.parse("*[[x]]*\n"),
+                       .root(children: [.paragraph(blockId: nil, children: [.emphasis(children: [.wikiLink(WikiLinkReference(target: "x"))])])]))
     }
 
     /// swift-cmark's inline attributes (`^[text](attrs)`) are not GFM and must not apply.

@@ -19,6 +19,21 @@ struct ExtensionPasses {
         restore(block(root))
     }
 
+    /// The same passes over the top-level blocks, keeping each block's source lines. A
+    /// standalone `^id` paragraph that attaches to the block before it gives that block its lines.
+    func applyTopLevel(_ blocks: [(node: MarkdownNode, lines: ClosedRange<Int>)]) -> [(node: MarkdownNode, lines: ClosedRange<Int>)] {
+        var out: [(node: MarkdownNode, lines: ClosedRange<Int>)] = []
+        for (node, lines) in blocks {
+            let converted = block(node)
+            if let previous = out.last, attachStandaloneIds([previous.node, converted]).count == 1 {
+                out[out.count - 1] = (attachStandaloneIds([previous.node, converted])[0], previous.lines.lowerBound...lines.upperBound)
+            } else {
+                out.append((converted, lines))
+            }
+        }
+        return out.map { (restore($0.node), $0.lines) }
+    }
+
     // MARK: - Blocks
 
     private func block(_ node: MarkdownNode) -> MarkdownNode {
