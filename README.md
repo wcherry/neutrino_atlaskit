@@ -11,7 +11,7 @@ knowledge base. See the roadmap in
 |---|---|---|
 | `AtlasCore` | Foundation, cmark-gfm and Yams only, so share extensions, widgets and App Intents can link it. Holds the Atlas Markdown tree (`MarkdownNode`), parser (`AtlasMarkdown.parse`), serializer (`MarkdownDocument`, `AtlasMarkdown.serializeCanonical`), page extraction (`PageExtract`, SPEC §6), link resolution (`LinkResolver`, SPEC §7), the syntax map an editor styles from (`AtlasMarkdown.syntax(of:)`), the vault index (`VaultIndex`) and sync (`Vault`, `VaultSync`). | Done |
 | `AtlasDrive` | The Drive adapter for sync (`DriveVaultRemote`, a `VaultRemote`): HTTP against `/api/v1/drive`, the vault's folder tree, and encryption with `NeutrinoCrypto`. Depends on `NeutrinoCore` and `NeutrinoCrypto` from `../neutrino_shared_ios`. | Done |
-| `AtlasEditor` | The TextKit 2 editor, with AppKit and UIKit adapters | Not started |
+| `AtlasEditor` | The TextKit 2 editor: `AtlasTextView` for AppKit and UIKit, `AtlasEditorView` for SwiftUI. Live Preview, list and quote continuation, indent and outdent, checkbox toggles, formatting commands. Its styling (`MarkdownStyler`) and commands (`MarkdownEditing`) are Foundation-only. Depends on AtlasCore only. | First version |
 | `AtlasUI` | SwiftUI views shared by both apps | Not started |
 
 `AtlasCore` has no dependency on `NeutrinoShared`; only `AtlasDrive` does, so the parser, index
@@ -218,6 +218,36 @@ URL style. Each edit is checked by reparsing the whole page. If the bytes can't 
 the block is rewritten canonically instead, and the result says so (`EditResult.inPlace`).
 "Exact" (`EditResult.exact`, `MarkdownDocument.isExact`) always means the whole page's bytes
 parse to its tree. The in-repo fuzz test checks that this is never wrong.
+
+### The editor
+
+The text in `AtlasTextView` is the page's Markdown, always, so what's saved is exactly what was
+typed. Everything the reader sees is attributes:
+- `MarkdownStyler` turns the syntax map into style runs, which `EditorTheme` turns into fonts and
+  colours.
+- In **Live Preview**, syntax that only decorates is hidden: `**`, `## `, `[[Target|`,
+  `(url)`, escapes and `^id` take no space (a near-zero font size, transparent). It shows again
+  when the cursor touches its construct, ends included, so the cursor never moves through
+  hidden characters.
+- List markers, checkboxes, quote markers, fences and table pipes stay visible, dimmed: they're
+  the structure. **Source** mode shows everything.
+- After a keystroke the page is mapped again (well under a millisecond for a usual page). After
+  a selection change, only the blocks the cursor left or entered are restyled.
+
+Commands are pure functions in `MarkdownEditing`, returning a `TextEdit`, and both views run
+them through the text system so they're undoable:
+- **Return** continues a list item, task or quote. On an empty item it removes the marker, which
+  ends the list.
+- **Tab** and **Shift-Tab** indent and outdent list items: under the sibling above, and back to
+  the parent's level.
+- Clicking or tapping a checkbox, or **⌘↩**, ticks a task by changing the one character
+  between the brackets (SPEC §8.2).
+- **⌘B**, **⌘I** and **⌘E** wrap or unwrap the selection in `**`, `_` or a backtick.
+
+Smart quotes, dashes and other substitutions are off: they would change the Markdown.
+
+Not yet: the `/` menu, wiki-link autocomplete, rendered images, embeds and checkboxes, and
+syntax highlighting inside code blocks.
 
 ## Building and testing
 

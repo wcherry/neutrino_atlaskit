@@ -17,7 +17,9 @@ import PackageDescription
 //   AtlasDrive   Sync's transport: the vault on Neutrino Drive (HTTP, folders, and encryption
 //                with NeutrinoCrypto). Kept out of AtlasCore so the engine and everything else
 //                there stay testable without libsodium or a network.
-//   AtlasEditor  (later) the TextKit 2 editor, with AppKit and UIKit adapters.
+//   AtlasEditor  The TextKit 2 editor: AtlasTextView for AppKit and UIKit, and AtlasEditorView for
+//                SwiftUI. Its styling and Markdown commands are Foundation-only and tested
+//                without a UI. Depends on AtlasCore only.
 //   AtlasUI      (later) SwiftUI views shared by both apps.
 //
 // Identity, keys and crypto come from NeutrinoShared (../neutrino_shared_ios), consumed by local
@@ -29,6 +31,7 @@ let package = Package(
     products: [
         .library(name: "AtlasCore", targets: ["AtlasCore"]),
         .library(name: "AtlasDrive", targets: ["AtlasDrive"]),
+        .library(name: "AtlasEditor", targets: ["AtlasEditor"]),
     ],
     dependencies: [
         // The CommonMark + GFM base (SPEC §2): GitHub's cmark-gfm, as packaged by swiftlang. It is
@@ -56,6 +59,14 @@ let package = Package(
                 .product(name: "NeutrinoCore", package: "neutrino_shared_ios"),
                 .product(name: "NeutrinoCrypto", package: "neutrino_shared_ios"),
             ]
+        ),
+        .target(
+            name: "AtlasEditor",
+            dependencies: ["AtlasCore"]
+        ),
+        .testTarget(
+            name: "AtlasEditorTests",
+            dependencies: ["AtlasEditor"]
         ),
         .testTarget(
             name: "AtlasDriveTests",
