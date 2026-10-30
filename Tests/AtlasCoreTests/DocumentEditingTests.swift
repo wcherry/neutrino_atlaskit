@@ -25,6 +25,26 @@ final class DocumentEditingTests: XCTestCase {
         XCTAssertEqual(doc.serialized(), "\u{FEFF}# B\r\n\r\none\r\ntwo\r\n")
     }
 
+    /// cmark-gfm reports a paragraph that a table interrupts with no position. Its lines must
+    /// still be right, or replacing it leaves its old text in the table's bytes.
+    func testAParagraphInterruptedByATableKeepsItsLines() {
+        var doc = MarkdownDocument(source: "a\\\nb  \nc\n| x | y |\n|---|---|\n")
+        XCTAssertTrue(doc.replaceBlock(at: 0, with: paragraph("Z")))
+        XCTAssertEqual(doc.serialized(), "Z\n\n| x | y |\n|---|---|\n")
+
+        // The block before such a paragraph isn't cut short by it either.
+        doc = MarkdownDocument(source: "one\ntwo\n\nthree\n| x | y |\n|---|---|\n")
+        XCTAssertTrue(doc.replaceBlock(at: 0, with: paragraph("Z")))
+        XCTAssertEqual(doc.serialized(), "Z\n\nthree\n| x | y |\n|---|---|\n")
+    }
+
+    /// A fenced code block that's never closed owns its trailing blank lines: they're its content.
+    func testAnUnclosedFenceKeepsItsBlankLines() {
+        var doc = MarkdownDocument(source: "```\nx\n\n")
+        XCTAssertTrue(doc.replaceBlock(at: 0, with: .code(lang: nil, meta: nil, value: "y", blockId: nil)))
+        XCTAssertEqual(doc.serialized(), "```\ny\n```\n")
+    }
+
     func testInsertAndRemove() {
         var doc = MarkdownDocument(source: "A\n\nB\n")
         doc.insertBlock(paragraph("Middle"), at: 1)

@@ -9,12 +9,13 @@ knowledge base. See the roadmap in
 
 | Module | What it is | Status |
 |---|---|---|
-| `AtlasCore` | Foundation, cmark-gfm and Yams only, so share extensions, widgets and App Intents can link it. Holds the Atlas Markdown tree (`MarkdownNode`), parser (`AtlasMarkdown.parse`), serializer (`MarkdownDocument`, `AtlasMarkdown.serializeCanonical`), page extraction (`PageExtract`, SPEC §6), link resolution (`LinkResolver`, SPEC §7), the vault index (`VaultIndex`) and sync (`Vault`, `VaultSync`). | Done, apart from the Drive adapter for sync |
+| `AtlasCore` | Foundation, cmark-gfm and Yams only, so share extensions, widgets and App Intents can link it. Holds the Atlas Markdown tree (`MarkdownNode`), parser (`AtlasMarkdown.parse`), serializer (`MarkdownDocument`, `AtlasMarkdown.serializeCanonical`), page extraction (`PageExtract`, SPEC §6), link resolution (`LinkResolver`, SPEC §7), the syntax map an editor styles from (`AtlasMarkdown.syntax(of:)`), the vault index (`VaultIndex`) and sync (`Vault`, `VaultSync`). | Done |
+| `AtlasDrive` | The Drive adapter for sync (`DriveVaultRemote`, a `VaultRemote`): HTTP against `/api/v1/drive`, the vault's folder tree, and encryption with `NeutrinoCrypto`. Depends on `NeutrinoCore` and `NeutrinoCrypto` from `../neutrino_shared_ios`. | Done |
 | `AtlasEditor` | The TextKit 2 editor, with AppKit and UIKit adapters | Not started |
 | `AtlasUI` | SwiftUI views shared by both apps | Not started |
 
-The Drive adapter for sync (HTTP, folders, and encryption with NeutrinoCrypto) comes next, and
-brings the first dependency on `NeutrinoShared`.
+`AtlasCore` has no dependency on `NeutrinoShared`; only `AtlasDrive` does, so the parser, index
+and sync engine can be tested without a server or a keyring.
 
 ### How the parser works
 
@@ -86,6 +87,33 @@ unescaped only if the block still reads back the same. A handful of pathological
 from characters decoded out of unusual entities, have no exact canonical text. Edits report this
 (`replaceBlock` returns `false`) rather than saving a silent change.
 
+### The syntax map
+
+`AtlasMarkdown.syntax(of:)` says where every construct of a page sits in its source, in UTF-16
+offsets as TextKit counts them. That covers headings, emphasis, links, wiki links, tags, code,
+callouts, list items and the rest. It also marks every syntax character (`**`, `## `, `[[`,
+`>`, `[ ]`, fences, escapes, block ids) as a `.syntax` span, so an editor can style the Markdown
+in place and hide its syntax away from the cursor (Live Preview).
+
+It doesn't parse a second time. The parser's tree decides what each block contains, and the
+map aligns that tree with the block's text, one character at a time. Escapes, character
+references, soft breaks, and the `>` and indentation prefixes of nested containers are all
+accounted for. A block is `isComplete` when every character matched. Otherwise its spans stop
+where alignment did, and the rest of the block stays plain: styling can be incomplete, but
+the text is never touched.
+
+`PageSyntaxTests` holds it to the parser in three ways:
+- every block of the conformance corpus aligns completely;
+- in each complete block, the constructs found are exactly the tree's nodes, payloads included;
+- on random pages, at least 99.5% of blocks align, with no traps and no span out of bounds.
+
+The random-page test also found three wrong block ranges in the parser, now fixed:
+- a paragraph that a table interrupts;
+- the block before such a paragraph;
+- an unclosed code fence's trailing blank lines.
+
+Each would have left text behind when the block was replaced.
+
 ### The vault index
 
 `VaultIndex` is what backlinks, unlinked mentions, the tag browser, the quick switcher and
@@ -152,6 +180,35 @@ written must survive unless some device removed it. It runs 40 seeds in CI; it h
 3,000 seeds of 200 operations (`ATLAS_SYNC_SEEDS`, `ATLAS_SYNC_OPS`). At 5,000 files, a first
 sync takes 0.19 s and a pass with nothing to do 55 ms, against an in-memory server.
 
+### The Drive adapter
+
+A vault is a Drive folder; `DriveVaultRemote.createVault(named:)` makes one. Pages and
+attachments are ordinary Drive files at their real paths (neutrino#292), so folder and file
+names are visible to the server, and content is not. Each file is encrypted the way Drive's own
+clients do it, with `NeutrinoCrypto`: a fresh key per file (`DriveFileCrypto.newDEK`), sealed to
+the keyring's active public key, chunked content encryption, and `encrypted_metadata` holding
+the name and MIME type.
+
+- `list` walks the folder tree breadth-first (Drive has no change feed).
+- `download` reads the file's `content_version` before and after the content and retries if they
+  differ, so the version it reports is the version of the bytes.
+- `replace` is Drive's autosave with `expectedContentVersion`; a 409 becomes
+  `VaultRemoteError.conflict`, which `VaultSync` turns into a merge. It sends no `metadata`
+  part, because autosave applies its `title` as a plaintext rename.
+- `create` and `move` create missing folders, checking the listing first so two passes don't
+  make two folders of one name.
+- A 401 retries once with `accessToken(forceRefresh: true)`.
+
+A rename or move changes the plaintext Drive name but not `encrypted_metadata`, which keeps the
+name the file was created with: Drive has no endpoint to update it. That's the accepted cost of
+mirroring the tree (neutrino#292); Atlas reads names from the tree, never from the metadata.
+
+`DriveVaultIntegrationTests` runs the adapter and two-device sync against a real server: it
+checks that the server stores ciphertext, that a stale write gets a 409 and merges, moves,
+deletions, attachments, key rotation, and a short randomized run. It's skipped unless
+`ATLAS_TEST_SERVER` is set. `scripts/test-against-server.sh` builds `../neutrino`, starts it with
+a throwaway database, and runs them.
+
 ### In-place edits
 
 `setTask(at:checked:)` and `rewriteLinks` (renames, SPEC §7) change only the bytes of the
@@ -166,7 +223,8 @@ parse to its tree. The in-repo fuzz test checks that this is never wrong.
 
 ```bash
 swift test                                                   # macOS
-xcodebuild test -scheme AtlasKit -destination 'id=<simulator>'  # iOS
+xcodebuild test -scheme AtlasKit-Package -destination 'id=<simulator>'  # iOS
+scripts/test-against-server.sh                               # AtlasDrive against a real server
 ```
 
 The Atlas apps consume this package by local path, so keep it checked out as a sibling of them

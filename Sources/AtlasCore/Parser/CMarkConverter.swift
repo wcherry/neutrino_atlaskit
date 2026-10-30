@@ -57,15 +57,21 @@ private struct Conversion {
         let top = topLevelInSourceOrder(document)
         var blocks: [(node: MarkdownNode, lines: ClosedRange<Int>)] = top.enumerated().map { i, n in
             let start = Int(cmark_node_get_start_line(n))
-            let next = i + 1 < top.count ? cmark_node_get_start_line(top[i + 1]) : nil
+            // The next sibling with a position: a paragraph split off by a table has none (below).
+            let next = top[(i + 1)...].lazy.map { cmark_node_get_start_line($0) }.first { $0 > 0 }
             return (node(n), start...max(start, Int(contentEndLine(n, before: next))))
         }
         // cmark-gfm bug: when a table interrupts a paragraph, it splits off a new paragraph with
         // no source position (line 0), and reports the table as starting where the paragraph
-        // did. The paragraph's lines are its own line count from there; the table follows.
+        // did. The table's own extent is exact (a line per row, plus the delimiter row), so the
+        // paragraph is everything from there up to the table. Counting the paragraph's lines
+        // from its text would miss hard breaks and code spans that cross lines.
         for i in blocks.indices where blocks[i].lines.lowerBound == 0 {
             let start = i + 1 < blocks.count ? blocks[i + 1].lines.lowerBound : (i > 0 ? blocks[i - 1].lines.upperBound + 1 : 1)
-            let count = blocks[i].node.plainTextForFlanking.filter { $0 == "\n" }.count + 1
+            var count = blocks[i].node.plainTextForFlanking.filter { $0 == "\n" }.count + 1
+            if i + 1 < blocks.count, case .table(_, _, let rows) = blocks[i + 1].node {
+                count = max(1, blocks[i + 1].lines.upperBound - rows.count - start)
+            }
             blocks[i].lines = start...(start + count - 1)
             if i + 1 < blocks.count {
                 let next = blocks[i + 1].lines
@@ -253,11 +259,16 @@ private struct Conversion {
     /// - for a setext heading it is the end of the *next* block;
     /// - a link reference definition leaves no node at all.
     ///
-    /// So clamp it to before the next sibling's first line, then step back over blank source lines.
+    /// So clamp it to before the next sibling's first line, then step back over blank source lines,
+    /// except in a fenced code block that is never closed: its trailing blank lines are its content.
     private func contentEndLine(_ n: Node, before nextStart: Int32? = nil) -> Int32 {
         var end = cmark_node_get_end_line(n)
         if let nextStart { end = min(end, nextStart - 1) }
         let start = cmark_node_get_start_line(n)
+        if cmark_node_get_type(n) == CMARK_NODE_CODE_BLOCK {
+            var length: Int32 = 0, offset: Int32 = 0, character: CChar = 0
+            if cmark_node_get_fenced(n, &length, &offset, &character) != 0 { return end }
+        }
         let depth = quoteDepth(n)
         while end > start, isBlank(line: end, insideQuotes: depth) { end -= 1 }
         return end
