@@ -9,11 +9,11 @@ knowledge base. See the roadmap in
 
 | Module | What it is | Status |
 |---|---|---|
-| `AtlasCore` | Foundation, cmark-gfm and Yams only, so share extensions, widgets and App Intents can link it. Holds the Atlas Markdown tree (`MarkdownNode`), parser (`AtlasMarkdown.parse`), serializer (`MarkdownDocument`, `AtlasMarkdown.serializeCanonical`), page extraction (`PageExtract`, SPEC §6) and link resolution (`LinkResolver`, SPEC §7). | Parser and serializer done |
+| `AtlasCore` | Foundation, cmark-gfm and Yams only, so share extensions, widgets and App Intents can link it. Holds the Atlas Markdown tree (`MarkdownNode`), parser (`AtlasMarkdown.parse`), serializer (`MarkdownDocument`, `AtlasMarkdown.serializeCanonical`), page extraction (`PageExtract`, SPEC §6), link resolution (`LinkResolver`, SPEC §7) and the vault index (`VaultIndex`). | Parser, serializer and index done |
 | `AtlasEditor` | The TextKit 2 editor, with AppKit and UIKit adapters | Not started |
 | `AtlasUI` | SwiftUI views shared by both apps | Not started |
 
-AtlasCore will later hold the encrypted index and sync engine.
+AtlasCore will later hold the sync engine.
 
 ### How the parser works
 
@@ -84,6 +84,40 @@ starts with every candidate escaped, then unescapes candidates right to left, ke
 unescaped only if the block still reads back the same. A handful of pathological trees, built
 from characters decoded out of unusual entities, have no exact canonical text. Edits report this
 (`replaceBlock` returns `false`) rather than saving a silent change.
+
+### The vault index
+
+`VaultIndex` is what backlinks, unlinked mentions, the tag browser, the quick switcher and
+search read. It never leaves the device.
+
+- **Storage:** an in-memory SQLite database (the system library, FTS5 for full text). At rest
+  it is one snapshot sealed by an `IndexSealer`. The app implements that with NeutrinoCrypto;
+  AtlasCore has no crypto of its own. A snapshot from another schema version, or one that won't
+  open, is rejected, and the app rebuilds the index from the pages.
+- **Links** are stored with the file they resolve to. When files appear, disappear or move,
+  only links whose target names that file are re-resolved. `batch { }` defers resolution to
+  one pass at the end, for a first import or a large sync.
+- **Search:**
+  - words match as prefixes, `"phrases"` exactly, and `-word` excludes;
+  - `#tag` / `tag:x` filter by tag, nested tags included; `path:folder` filters by folder;
+  - case and diacritics are ignored, and titles rank above aliases, which rank above body text.
+- **Renames:** `pagesLinking(to:)` lists the pages to rewrite (`MarkdownDocument.rewriteLinks`)
+  before `renameFile(from:to:)`.
+
+Measured at 5,000 pages (~11 MB of Markdown) on an M-series Mac, release build:
+
+| Operation | Time |
+|---|---|
+| Parse all pages | 0.8 s |
+| Build the index | 0.35 s |
+| Open a sealed snapshot (26 MB) | 53 ms |
+| Search | ~5 ms |
+| Quick switcher | ~10 ms |
+| Backlinks | < 0.1 ms |
+| Re-index one edited page | 0.6 ms |
+
+The roadmap's Phase 1 target is under 1 s to open and under 100 ms to search.
+`VaultIndexTests.testFiveThousandPages` holds the build to those bounds, on macOS and iOS.
 
 ### In-place edits
 

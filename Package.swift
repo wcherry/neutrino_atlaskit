@@ -10,10 +10,10 @@ import PackageDescription
 //
 // Layers, added as each gets code:
 //
-//   AtlasCore    Foundation, cmark-gfm and Yams only. The Atlas Markdown tree and parser,
-//                extraction (§6), link resolution (§7), and later the serializer, index and
-//                sync. Must stay linkable from share extensions, widgets and App Intents: no
-//                UI frameworks.
+//   AtlasCore    Foundation, cmark-gfm, Yams and the system SQLite only. The Atlas Markdown
+//                tree, parser and serializer, extraction (§6), link resolution (§7) and the
+//                vault index, and later sync. Must stay linkable from share extensions,
+//                widgets and App Intents: no UI frameworks.
 //   AtlasEditor  (later) the TextKit 2 editor, with AppKit and UIKit adapters.
 //   AtlasUI      (later) SwiftUI views shared by both apps.
 //

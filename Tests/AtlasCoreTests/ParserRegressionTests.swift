@@ -43,6 +43,13 @@ final class ParserRegressionTests: XCTestCase {
         XCTAssertEqual(text("`\u{2E3E}` \u{2E3C}\u{E020}\u{2E3D} \u{2E41}#x\n"), "\u{2E3E} \u{2E3C}\u{E020}\u{2E3D} \u{2E41}#x")
     }
 
+    /// A character reference that decodes into the reserved ranges is decoded inside cmark,
+    /// after protection ran: it must come out as the character, not as a marker.
+    func testReferencesToReservedCharacters() {
+        XCTAssertEqual(text("a &#11838; b &#x2E3E; &#57344;x\n"), "a \u{2E3E} b \u{2E3E} \u{E000}x")
+        XCTAssertEqual(text("`&#11838;`\n"), "&#11838;")
+    }
+
     /// Escape markers and placeholders flank like the punctuation they replace: an escaped
     /// character or a wiki link next to `*` or `_` must not change what is emphasis.
     func testMarkersFlankLikePunctuation() {

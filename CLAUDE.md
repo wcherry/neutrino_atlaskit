@@ -19,7 +19,11 @@ The shared Swift package of the Neutrino Atlas apps (macOS + iOS). Read the plat
   and indexed here, on the client. Nothing in this package sends them to the server
   unencrypted (roadmap, constraint 2).
 - **Encryption comes from `NeutrinoCrypto`.** Never add another E2EE implementation (root
-  `CLAUDE.md`, rule 5).
+  `CLAUDE.md`, rule 5). The index is sealed through the `IndexSealer` protocol, which the app
+  implements with NeutrinoCrypto. Tests may use CryptoKit; production code in AtlasCore may not.
+- **Keep `VaultIndexTests.testFiveThousandPages` within the roadmap's bounds** (open < 1 s,
+  search < 100 ms). If a change slows the parser or the index, measure in release before
+  shipping.
 - **The parser reserves U+E000–U+E0FF** for its markers (see README). Any change to the
   preprocessor must keep `ParserFuzzTests` green: no traps, and no lost characters.
 - Test on both platforms: `swift test`, plus `xcodebuild test -scheme AtlasKit` on an iOS

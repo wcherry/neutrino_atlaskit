@@ -39,10 +39,15 @@ struct SourcePreprocessor {
         /// A character from the private-use range the parser reserves, which the source already
         /// contained. It is protected so it can't be mistaken for a marker.
         case literal(String)
+        /// A numeric character reference (`&#11838;`) that decodes into the reserved ranges.
+        /// cmark would decode it after protection ran, and the result would pass for a marker. It
+        /// restores as the decoded character in text, and as written in code, where references
+        /// aren't decoded.
+        case reference(decoded: String, raw: String)
 
         var raw: String {
             switch self {
-            case .wikiLink(_, let raw), .embed(_, let raw), .inlineMath(_, let raw): return raw
+            case .wikiLink(_, let raw), .embed(_, let raw), .inlineMath(_, let raw), .reference(_, let raw): return raw
             case .literal(let s): return s
             }
         }
@@ -116,25 +121,26 @@ struct SourcePreprocessor {
 
     struct Line { var content: String; var ending: String }
 
+    /// Splits text into lines, keeping each line's ending (`\n`, `\r\n`, `\r`, or none for a
+    /// last line without one). A byte scan, slicing substrings: it runs on every parse.
     static func splitLines(_ text: String) -> [Line] {
         var lines: [Line] = []
-        var current = ""
-        var scalars = text.unicodeScalars.makeIterator()
-        var pending: Unicode.Scalar? = nil
-        while let s = pending ?? scalars.next() {
-            pending = nil
-            if s == "\n" {
-                lines.append(Line(content: current, ending: "\n")); current = ""
-            } else if s == "\r" {
-                let next = scalars.next()
-                if next == "\n" { lines.append(Line(content: current, ending: "\r\n")) }
-                else { lines.append(Line(content: current, ending: "\r")); pending = next }
-                current = ""
+        let utf8 = text.utf8
+        var start = utf8.startIndex
+        var i = start
+        while i != utf8.endIndex {
+            let byte = utf8[i]
+            if byte == UInt8(ascii: "\n") || byte == UInt8(ascii: "\r") {
+                var end = utf8.index(after: i)
+                if byte == UInt8(ascii: "\r"), end != utf8.endIndex, utf8[end] == UInt8(ascii: "\n") { end = utf8.index(after: end) }
+                lines.append(Line(content: String(text[start..<i]), ending: String(text[i..<end])))
+                start = end
+                i = end
             } else {
-                current.unicodeScalars.append(s)
+                i = utf8.index(after: i)
             }
         }
-        if !current.isEmpty { lines.append(Line(content: current, ending: "")) }
+        if start != utf8.endIndex { lines.append(Line(content: String(text[start...]), ending: "")) }
         return lines
     }
 
@@ -157,7 +163,7 @@ struct SourcePreprocessor {
     /// fenced code block. Without a closing line, the `$$` is ordinary text.
     static func fenceMathBlocks(_ lines: inout [Line]) {
         func isMathFence(_ s: String) -> Bool {
-            s.range(of: #"^ {0,3}\$\$[ \t]*$"#, options: .regularExpression) != nil
+            s.hasBytePair(UInt8(ascii: "$")) && s.range(of: #"^ {0,3}\$\$[ \t]*$"#, options: .regularExpression) != nil
         }
         var i = 0
         var openFence: (char: Character, count: Int)? = nil
@@ -187,7 +193,7 @@ struct SourcePreprocessor {
         let count = trimmed.prefix(while: { $0 == c }).count
         guard count >= 3 else { return nil }
         let info = String(trimmed.dropFirst(count))
-        if c == "`" && info.contains("`") { return nil }
+        if c == "`" && info.hasByte(UInt8(ascii: "`")) { return nil }
         return (c, count, info)
     }
 
@@ -209,6 +215,20 @@ struct SourcePreprocessor {
 
         while i < chars.count {
             let c = chars[i]
+
+            // Fast path: most characters are none of the ones handled below. Every trigger is
+            // ASCII, and only non-ASCII characters can be reserved.
+            if let ascii = c.asciiValue {
+                switch ascii {
+                case UInt8(ascii: "`"), UInt8(ascii: "<"), UInt8(ascii: "\\"), UInt8(ascii: "$"),
+                     UInt8(ascii: "!"), UInt8(ascii: "["), UInt8(ascii: "^"), UInt8(ascii: "&"):
+                    break
+                default:
+                    out.append(c); i += 1; continue
+                }
+            } else if !c.unicodeScalars.contains(where: Self.isReserved) {
+                out.append(c); i += 1; continue
+            }
 
             if c.unicodeScalars.contains(where: Self.isReserved) || Self.isHiddenCaret(chars, at: i) {
                 out += protectReserved(c, chars, at: i); i += 1; continue
@@ -238,6 +258,11 @@ struct SourcePreprocessor {
                     out.append(c); out.append(next); i += 2; continue
                 }
             }
+            if c == "&", let (end, decoded) = Self.reservedReference(chars, at: i) {
+                tokens.append(.reference(decoded: decoded, raw: String(chars[i..<end])))
+                out += Self.placeholder(tokens.count - 1)
+                i = end; continue
+            }
             if c == "$", let (end, token) = Self.inlineMath(chars, at: i) {
                 tokenSourceRanges[tokens.count] = i..<end
                 out += Self.placeholder(tokens.count); tokens.append(token); i = end; continue
@@ -250,6 +275,21 @@ struct SourcePreprocessor {
             i += 1
         }
         return out
+    }
+
+    /// A numeric character reference at `i` (`&#NNN;` or `&#xHHH;`) whose code point is in the
+    /// reserved ranges: where it ends, and the character it decodes to.
+    static func reservedReference(_ chars: [Character], at i: Int) -> (Int, String)? {
+        guard i + 3 < chars.count, chars[i + 1] == "#" else { return nil }
+        var j = i + 2
+        let hex = chars[j] == "x" || chars[j] == "X"
+        if hex { j += 1 }
+        let digitsStart = j
+        while j < chars.count, j - digitsStart < 7, chars[j].isASCII, hex ? chars[j].isHexDigit : chars[j].isNumber { j += 1 }
+        guard j > digitsStart, j < chars.count, chars[j] == ";",
+              let value = UInt32(String(chars[digitsStart..<j]), radix: hex ? 16 : 10),
+              let scalar = Unicode.Scalar(value), isReserved(scalar) else { return nil }
+        return (j + 1, String(Character(scalar)))
     }
 
     /// Whether the text from `start` is a footnote label and its closing `]`. SPEC §3.2: one or
@@ -408,13 +448,13 @@ struct SourcePreprocessor {
                 ref.blockId = id
             } else {
                 let heading = trim(rest)
-                guard !heading.isEmpty, !heading.contains("^") else { return nil }
+                guard !heading.isEmpty, !heading.hasByte(UInt8(ascii: "^")) else { return nil }
                 ref.heading = heading
             }
         } else {
             ref.target = trim(left)
         }
-        if ref.target.contains("^") { return nil }
+        if ref.target.hasByte(UInt8(ascii: "^")) { return nil }
         if ref.target.isEmpty && ref.heading == nil && ref.blockId == nil { return nil }
         return ref
     }

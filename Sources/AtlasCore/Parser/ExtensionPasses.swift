@@ -63,7 +63,7 @@ struct ExtensionPasses {
 
     /// §4.6, trailing form: whitespace, `^`, then an id at the very end of a paragraph.
     private func trailingBlockId(_ p: MarkdownNode) -> MarkdownNode {
-        guard case .paragraph(_, var kids) = p, case .text(let value)? = kids.last,
+        guard case .paragraph(_, var kids) = p, case .text(let value)? = kids.last, value.hasByte(UInt8(ascii: "^")),
               let match = value.range(of: #"[ \t]+\^[A-Za-z0-9-]+$"#, options: .regularExpression) else { return p }
         let id = String(value[match].drop(while: { $0 != "^" }).dropFirst())
         let rest = String(value[..<match.lowerBound]).trimmingTrailing(" \t")
@@ -77,7 +77,7 @@ struct ExtensionPasses {
     private func attachStandaloneIds(_ kids: [MarkdownNode]) -> [MarkdownNode] {
         var out: [MarkdownNode] = []
         for kid in kids {
-            if case .paragraph(nil, let inner) = kid, inner.count == 1, case .text(let v) = inner[0],
+            if case .paragraph(nil, let inner) = kid, inner.count == 1, case .text(let v) = inner[0], v.hasPrefix("^"),
                v.range(of: #"^\^[A-Za-z0-9-]+$"#, options: .regularExpression) != nil,
                let previous = out.last, previous.acceptsStandaloneBlockId {
                 out[out.count - 1] = previous.settingBlockId(String(v.dropFirst()))
@@ -92,7 +92,7 @@ struct ExtensionPasses {
     /// whitespace, a line ending or nothing.
     private func callout(_ quote: MarkdownNode) -> MarkdownNode {
         guard case .blockquote(_, let kids) = quote, case .paragraph(let pid, let inline)? = kids.first,
-              case .text(let first)? = inline.first,
+              case .text(let first)? = inline.first, first.hasPrefix("[!"),
               let marker = first.range(of: #"^\[![A-Za-z0-9_-]+\][+-]?"#, options: .regularExpression) else { return quote }
 
         let markerText = first[marker]
@@ -157,6 +157,7 @@ struct ExtensionPasses {
     }
 
     private func split(_ text: String) -> [MarkdownNode] {
+        guard text.unicodeScalars.contains(SourcePreprocessor.tokenStart) else { return [.text(value: text)] }
         var out: [MarkdownNode] = []
         var run = ""
         var scalars = text.unicodeScalars.makeIterator()
@@ -171,7 +172,7 @@ struct ExtensionPasses {
             case .wikiLink(let ref, _): node = .wikiLink(ref); materialized.indices.append(index)
             case .embed(let ref, _): node = .embed(ref); materialized.indices.append(index)
             case .inlineMath(let value, _): node = .inlineMath(value: value)
-            case .literal:
+            case .literal, .reference:
                 // Left as a placeholder: the restore pass turns it back into the character, once.
                 run += SourcePreprocessor.placeholder(index); continue
             }
@@ -195,7 +196,7 @@ struct ExtensionPasses {
         }
         var pieces: [Item] = []
         for kid in nested {
-            guard case .text(let v) = kid, v.contains("==") else { pieces.append(.node(kid)); continue }
+            guard case .text(let v) = kid, v.hasBytePair(UInt8(ascii: "=")) else { pieces.append(.node(kid)); continue }
             var run = ""
             var chars = Array(v)[...]
             while let c = chars.first {
@@ -277,6 +278,10 @@ struct ExtensionPasses {
     }
 
     private func tags(in text: String, previous: inout Character?) -> [MarkdownNode] {
+        guard text.hasByte(UInt8(ascii: "#")) else {
+            if let last = text.last { previous = last }
+            return [.text(value: text)]
+        }
         let chars = Array(text)
         var out: [MarkdownNode] = []
         var run = ""
@@ -339,7 +344,12 @@ struct ExtensionPasses {
         while let c = scalars.next() {
             if c == SourcePreprocessor.tokenStart {
                 let (index, read) = SourcePreprocessor.readToken(&scalars, count: tokens.count)
-                if let index { out += tokens[index].raw } else { out.unicodeScalars.append(c); out.unicodeScalars.append(contentsOf: read) }
+                if let index {
+                    if case .reference(let decoded, let raw) = tokens[index] { out += context == .raw ? raw : decoded }
+                    else { out += tokens[index].raw }
+                } else {
+                    out.unicodeScalars.append(c); out.unicodeScalars.append(contentsOf: read)
+                }
             } else if let escaped = SourcePreprocessor.escapedCharacter[c] {
                 // In text and URLs cmark would have processed the escape; in code it stays.
                 if context == .raw { out += "\\" }
