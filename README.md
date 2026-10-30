@@ -197,6 +197,16 @@ Two more rules close the races that remain:
   as synced, and a later pull would overwrite it.
 - **Moves and deletions wait** for the running pass to finish.
 
+"Link it" for unlinked mentions is `VaultWorkspace.linkMentions(of:in:name:)`, built on
+`AtlasMarkdown.linkingMentions`. The index finds which pages mention a title
+(`unlinkedMentions`), and this finds where:
+- **Where it looks:** the plain text of each block, through the syntax map. Never code, math,
+  frontmatter, links, tags, or across syntax characters.
+- **What it writes:** the words as written. `[[plan]]` when they're the target up to case,
+  otherwise `[[Projects/Plan|plan]]`.
+- **The check:** like the other in-place edits, the result is checked by parsing it. The page
+  must read back as the old tree plus exactly the new links, or nothing is written.
+
 `VaultWorkspaceTests` makes both races happen, with a remote that holds a push until the test
 releases it.
 

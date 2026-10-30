@@ -128,4 +128,16 @@ final class VaultWorkspaceTests: XCTestCase {
         try await w.sync()
         XCTAssertEqual(remote.drive.snapshot, ["B.md": "b\n"])
     }
+
+    func testLinkingMentions() async throws {
+        let w = try workspace(FakeDrive())
+        try w.write(text: "# Plan\n", at: "Projects/Plan.md")
+        try w.write(text: "Talked about the plan.\n", at: "Inbox.md")
+        let mentions = try w.index.unlinkedMentions(of: "Projects/Plan.md")
+        XCTAssertEqual(mentions.map(\.source), ["Inbox.md"])
+        XCTAssertEqual(try w.linkMentions(of: "Projects/Plan.md", in: "Inbox.md", name: mentions[0].name), 1)
+        XCTAssertEqual(try w.text(at: "Inbox.md"), "Talked about the [[plan]].\n")
+        XCTAssertEqual(try w.index.backlinks(to: "Projects/Plan.md").map(\.source), ["Inbox.md"])
+        XCTAssertEqual(try w.index.unlinkedMentions(of: "Projects/Plan.md"), [])
+    }
 }
