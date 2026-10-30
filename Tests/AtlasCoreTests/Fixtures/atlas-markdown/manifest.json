@@ -1,5 +1,5 @@
 {
-  "specVersion": "1.0.0-draft",
+  "specVersion": "1.0.0-draft.2",
   "cases": [
     {
       "id": "core/paragraphs-headings",
@@ -156,6 +156,54 @@
     {
       "id": "frontmatter/unclosed",
       "description": "Without a closing line there is no frontmatter: the --- is a thematic break."
+    },
+    {
+      "id": "core/list-spread-in-item",
+      "description": "A blank line inside an item spreads the item, not the list (mdast's definitions)."
+    },
+    {
+      "id": "core/reference-links",
+      "description": "Reference links resolve to link/image with the definition's url and title; definitions are not in the tree."
+    },
+    {
+      "id": "core/table-ragged-rows",
+      "description": "Every row has as many cells as the header: short rows are padded, extra cells dropped."
+    },
+    {
+      "id": "core/inline-code-line-endings",
+      "description": "A line ending inside a code span becomes a space, as CommonMark defines the content."
+    },
+    {
+      "id": "core/html-block-to-eof",
+      "description": "An HTML block running to the end of the file has no trailing line ending in its value."
+    },
+    {
+      "id": "core/footnotes",
+      "description": "GFM footnotes: identifier is the label lowercased, label as written."
+    },
+    {
+      "id": "core/footnote-placement",
+      "description": "Footnote definitions sit at the top level in source order; a definition no reference uses is not in the tree."
+    },
+    {
+      "id": "core/footnote-label-chars",
+      "description": "A footnote label is letters, digits, - and _. Any other [^…] is plain CommonMark: here a reference link."
+    },
+    {
+      "id": "core/ftp-autolink",
+      "description": "ftp:// is an extended autolink (GFM spec 0.29); canonical form writes it in angle brackets."
+    },
+    {
+      "id": "math/single-line-only",
+      "description": "Inline math never spans a line ending."
+    },
+    {
+      "id": "math/top-level-only",
+      "description": "$$ blocks are recognised only at the top level; inside a blockquote they are text."
+    },
+    {
+      "id": "escapes/literal-triggers",
+      "description": "An escaped character never starts an extension: tags, highlights, wiki links, math, block ids, callouts."
     }
   ],
   "resolve": [

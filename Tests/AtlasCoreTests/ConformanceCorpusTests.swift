@@ -5,12 +5,12 @@ import XCTest
 /// Runs the Atlas Markdown conformance corpus (SPEC §9), vendored from
 /// neutrino/specs/atlas-markdown/corpus by scripts/sync-atlas-markdown-corpus.sh.
 ///
-/// There is no parser yet, so these tests cover the parts of the spec that don't need one:
-/// - the tree model reads and writes every expected tree exactly;
-/// - extraction (check E) runs on the expected trees;
-/// - link resolution and link writing are checked against the vault fixture.
+/// - **P**: parsing each `input.md` gives exactly `ast.json`.
+/// - **E**: extraction gives `extract.json`, both from the expected tree and from the parsed one.
+/// - The tree model reads and writes every expected tree exactly.
+/// - Link resolution and link writing match the vault fixture.
 ///
-/// Checks P, R and C need the parser and serializer, and arrive with them.
+/// Checks R and C need the serializer, and arrive with it.
 final class ConformanceCorpusTests: XCTestCase {
     struct Manifest: Decodable {
         struct Case: Decodable { let id: String; let description: String }
@@ -62,6 +62,43 @@ final class ConformanceCorpusTests: XCTestCase {
                 XCTAssertEqual(reencoded, original, "\(c.id): ast.json does not survive a decode/encode round trip")
             }
         }
+    }
+
+    /// Check P: parsing `input.md` gives exactly `ast.json`.
+    func testParsingMatchesEveryCase() throws {
+        for c in try manifest().cases {
+            checkCase(c.id) {
+                let input = try String(contentsOf: Self.corpus.appendingPathComponent("cases/\(c.id)/input.md"), encoding: .utf8)
+                let expected = try load(MarkdownNode.self, "cases/\(c.id)/ast.json")
+                let actual = AtlasMarkdown.parse(input)
+                if actual != expected {
+                    XCTFail("\(c.id): parsed tree differs from ast.json\n\(Self.firstDifference(expected, actual))")
+                }
+            }
+        }
+    }
+
+    /// Check E on parsed input, which is how an app actually indexes a page.
+    func testExtractionFromParsedInputMatchesEveryCase() throws {
+        for c in try manifest().cases {
+            checkCase(c.id) {
+                let input = try String(contentsOf: Self.corpus.appendingPathComponent("cases/\(c.id)/input.md"), encoding: .utf8)
+                let expected = try load(PageExtract.self, "cases/\(c.id)/extract.json")
+                XCTAssertEqual(PageExtract(page: AtlasMarkdown.parse(input)), expected, "\(c.id): extract from parsed input")
+            }
+        }
+    }
+
+    /// The first line where two trees' pretty JSON differs, with a little context.
+    static func firstDifference(_ expected: MarkdownNode, _ actual: MarkdownNode) -> String {
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = [.prettyPrinted, .sortedKeys, .withoutEscapingSlashes]
+        let e = String(decoding: try! encoder.encode(expected), as: UTF8.self).split(separator: "\n", omittingEmptySubsequences: false)
+        let a = String(decoding: try! encoder.encode(actual), as: UTF8.self).split(separator: "\n", omittingEmptySubsequences: false)
+        let i = (0..<min(e.count, a.count)).first(where: { e[$0] != a[$0] }) ?? min(e.count, a.count)
+        let window = max(0, i - 4)..<i + 3
+        return "expected:\n" + e[window.clamped(to: e.indices)].joined(separator: "\n")
+            + "\nactual:\n" + a[window.clamped(to: a.indices)].joined(separator: "\n")
     }
 
     /// Check E, applied to the expected tree rather than a parsed one.

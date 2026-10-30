@@ -1,0 +1,30 @@
+{
+  "type": "root",
+  "children": [
+    {
+      "type": "paragraph",
+      "blockId": null,
+      "children": [
+        {
+          "type": "text",
+          "value": "Mirror: "
+        },
+        {
+          "type": "link",
+          "url": "ftp://foo.bar.baz",
+          "title": null,
+          "children": [
+            {
+              "type": "text",
+              "value": "ftp://foo.bar.baz"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "value": "."
+        }
+      ]
+    }
+  ]
+}
