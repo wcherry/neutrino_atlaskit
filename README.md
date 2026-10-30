@@ -204,6 +204,17 @@ A device's copy of a vault is a `SealedDiskStorage` sealed by `DeviceSealer`, wh
 NeutrinoCrypto's file encryption with a key the app keeps in its Keychain. That key isn't the
 account's keyring: losing it loses only this copy, which the next sync downloads again.
 
+### Daily notes and templates
+
+`DailyNotes` names a day's note: `Daily/2026-10-30.md` by default, with the folder and the
+date format configurable. `VaultWorkspace.dailyNote(for:settings:)` opens it, creating it from
+its template the first time. `PageTemplate.render` fills `{{title}}`, `{{date}}`, `{{time}}`
+and `{{date:FORMAT}}`.
+
+Two devices that create the same day's note before syncing end up with one page, because sync
+adopts a file both sides created with the same content. That's why the default template is
+empty, and why a template shouldn't use what differs between devices, such as `{{time}}`.
+
 ### The Drive adapter
 
 A vault is a Drive folder; `DriveVaultRemote.createVault(named:)` makes one. Pages and
