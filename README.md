@@ -9,7 +9,7 @@ knowledge base. See the roadmap in
 
 | Module | What it is | Status |
 |---|---|---|
-| `AtlasCore` | Foundation, cmark-gfm and Yams only, so share extensions, widgets and App Intents can link it. Holds the Atlas Markdown tree (`MarkdownNode`), parser (`AtlasMarkdown.parse`), serializer (`MarkdownDocument`, `AtlasMarkdown.serializeCanonical`), page extraction (`PageExtract`, SPEC §6), link resolution (`LinkResolver`, SPEC §7), the vault index (`VaultIndex`) and sync (`Vault`, `VaultSync`). | Done |
+| `AtlasCore` | Foundation, cmark-gfm and Yams only, so share extensions, widgets and App Intents can link it. Holds the Atlas Markdown tree (`MarkdownNode`), parser (`AtlasMarkdown.parse`), serializer (`MarkdownDocument`, `AtlasMarkdown.serializeCanonical`), page extraction (`PageExtract`, SPEC §6), link resolution (`LinkResolver`, SPEC §7), the syntax map an editor styles from (`AtlasMarkdown.syntax(of:)`), the vault index (`VaultIndex`) and sync (`Vault`, `VaultSync`). | Done |
 | `AtlasDrive` | The Drive adapter for sync (`DriveVaultRemote`, a `VaultRemote`): HTTP against `/api/v1/drive`, the vault's folder tree, and encryption with `NeutrinoCrypto`. Depends on `NeutrinoCore` and `NeutrinoCrypto` from `../neutrino_shared_ios`. | Done |
 | `AtlasEditor` | The TextKit 2 editor, with AppKit and UIKit adapters | Not started |
 | `AtlasUI` | SwiftUI views shared by both apps | Not started |
@@ -86,6 +86,33 @@ starts with every candidate escaped, then unescapes candidates right to left, ke
 unescaped only if the block still reads back the same. A handful of pathological trees, built
 from characters decoded out of unusual entities, have no exact canonical text. Edits report this
 (`replaceBlock` returns `false`) rather than saving a silent change.
+
+### The syntax map
+
+`AtlasMarkdown.syntax(of:)` says where every construct of a page sits in its source, in UTF-16
+offsets as TextKit counts them. That covers headings, emphasis, links, wiki links, tags, code,
+callouts, list items and the rest. It also marks every syntax character (`**`, `## `, `[[`,
+`>`, `[ ]`, fences, escapes, block ids) as a `.syntax` span, so an editor can style the Markdown
+in place and hide its syntax away from the cursor (Live Preview).
+
+It doesn't parse a second time. The parser's tree decides what each block contains, and the
+map aligns that tree with the block's text, one character at a time. Escapes, character
+references, soft breaks, and the `>` and indentation prefixes of nested containers are all
+accounted for. A block is `isComplete` when every character matched. Otherwise its spans stop
+where alignment did, and the rest of the block stays plain: styling can be incomplete, but
+the text is never touched.
+
+`PageSyntaxTests` holds it to the parser in three ways:
+- every block of the conformance corpus aligns completely;
+- in each complete block, the constructs found are exactly the tree's nodes, payloads included;
+- on random pages, at least 99.5% of blocks align, with no traps and no span out of bounds.
+
+The random-page test also found three wrong block ranges in the parser, now fixed:
+- a paragraph that a table interrupts;
+- the block before such a paragraph;
+- an unclosed code fence's trailing blank lines.
+
+Each would have left text behind when the block was replaced.
 
 ### The vault index
 
