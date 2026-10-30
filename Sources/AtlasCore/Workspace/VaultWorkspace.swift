@@ -123,6 +123,21 @@ public final class VaultWorkspace {
         return rewritten
     }
 
+    /// "Link it": turns the unlinked mentions of `path` in the page `source` into wiki links
+    /// (`AtlasMarkdown.linkingMentions`). `name` is the title or alias that was mentioned
+    /// (`VaultIndex.Mention.name`); the page's title by default. Returns how many were linked.
+    @discardableResult
+    public func linkMentions(of path: String, in source: String, name: String? = nil) throws -> Int {
+        guard let text = try text(at: source) else { return 0 }
+        let resolver = LinkResolver(files: paths)
+        var target = resolver.linkTarget(for: path)
+        // The shortest target resolves from the vault's root; make sure it does from `source` too.
+        if resolver.resolve(target, from: source) != path { target = Self.isPage(path) ? String(path.dropLast(3)) : path }
+        guard let (linked, count) = AtlasMarkdown.linkingMentions(of: name ?? Self.title(of: path), as: target, in: text) else { return 0 }
+        try write(text: linked, at: source)
+        return count
+    }
+
     /// Deletes a file. Waits for a running pass.
     public func delete(at path: String) async throws {
         await untilIdle()
