@@ -244,6 +244,33 @@ extension VaultIndex {
         return Array(best.values.sorted { $0.score != $1.score ? $0.score > $1.score : $0.path < $1.path }.prefix(limit))
     }
 
+    // MARK: - Headings
+
+    /// The headings on `path`, in document order.
+    public func headings(of path: String) throws -> [PageExtract.Heading] {
+        var out: [PageExtract.Heading] = []
+        try db.query("""
+            SELECT headings.depth, headings.text FROM headings JOIN pages ON pages.id = headings.page
+            WHERE pages.path = ? ORDER BY headings.ord
+            """, [.text(path)]) { row in out.append(PageExtract.Heading(depth: Int(row.int(0)), text: row.text(1) ?? "")) }
+        return out
+    }
+
+    /// Headings to suggest after `[[Page#`: those `query` fuzzily matches, best first, or all
+    /// of them in document order when it's empty. Headings that would be written the same in a
+    /// link (`AtlasMarkdown.headingLinkText`) are suggested once, as the first resolves.
+    public static func matchingHeadings(_ headings: [PageExtract.Heading], _ query: String, limit: Int = 20) -> [PageExtract.Heading] {
+        var seen = Set<String>()
+        let unique = headings.filter { h in
+            let key = AtlasMarkdown.headingKey(h.text)
+            return !key.isEmpty && seen.insert(key).inserted
+        }
+        let q = AtlasMarkdown.matchKey(query.trimmingCharacters(in: .whitespaces))
+        guard !q.isEmpty else { return Array(unique.prefix(limit)) }
+        let scored = unique.enumerated().compactMap { i, h in fuzzyScore(q, AtlasMarkdown.headingKey(h.text)).map { (i, h, $0) } }
+        return Array(scored.sorted { $0.2 != $1.2 ? $0.2 > $1.2 : $0.0 < $1.0 }.map(\.1).prefix(limit))
+    }
+
     /// A match score, or nil if `query` isn't a subsequence of `candidate`. Both already folded.
     static func fuzzyScore(_ query: String, _ candidate: String) -> Int? {
         if candidate == query { return 10_000 }

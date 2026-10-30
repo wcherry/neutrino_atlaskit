@@ -9,12 +9,33 @@ public enum LinkTarget: Equatable, Sendable {
     case url(String)
 }
 
+/// A place on a page to show: the heading or block a link points at (`[[Page#Heading]]`,
+/// `[[Page#^id]]`). `AtlasTextView.reveal` finds it with `PageSyntax.anchor`.
+public struct EditorAnchor: Equatable, Sendable {
+    public var heading: String?
+    public var blockId: String?
+    /// Tells two requests apart, so following the same link again shows the place again.
+    public var id = UUID()
+
+    public init(heading: String? = nil, blockId: String? = nil) {
+        self.heading = heading
+        self.blockId = blockId
+    }
+
+    /// The place a link points at on its page, or nil for a link to the whole page.
+    public init?(_ ref: WikiLinkReference) {
+        guard ref.heading != nil || ref.blockId != nil else { return nil }
+        self.init(heading: ref.heading, blockId: ref.blockId)
+    }
+}
+
 /// One suggestion while a wiki link is being typed.
 public struct LinkCompletion: Equatable, Sendable {
     /// What the list shows: the page's title.
     public var title: String
-    /// What goes between `[[` and `]]`: the shortest target that resolves to the page
-    /// (`LinkResolver.linkTarget(for:)`).
+    /// What replaces the typed text: the shortest target that resolves to the page
+    /// (`LinkResolver.linkTarget(for:)`), or after `#` the heading as a link writes it
+    /// (`AtlasMarkdown.headingLinkText`).
     public var target: String
     /// A second line, such as the page's folder.
     public var detail: String?
@@ -26,11 +47,21 @@ public struct LinkCompletion: Equatable, Sendable {
     }
 }
 
-/// A wiki link being typed: the text after `[[`, up to the cursor.
+/// A wiki link being typed: the text after `[[`, up to the cursor, or after its `#` once the
+/// page is named.
 public struct LinkCompletionContext: Equatable, Sendable {
-    /// UTF-16 offsets of the typed text (empty right after `[[`).
+    /// UTF-16 offsets of the typed text (empty right after `[[` or `#`).
     public var range: Range<Int>
     public var query: String
+    /// Nil while the page is typed. Once a `#` follows it, the page's target as written
+    /// (empty for `[[#`, this page), and `query` is the heading typed so far.
+    public var page: String?
+
+    public init(range: Range<Int>, query: String, page: String? = nil) {
+        self.range = range
+        self.query = query
+        self.page = page
+    }
 }
 
 extension MarkdownEditing {
@@ -64,20 +95,26 @@ extension MarkdownEditing {
     }
 
     /// The wiki link being typed at `cursor`, if any: an unclosed `[[` earlier on the line, with
-    /// no `]`, `[`, `|` or `#` between it and the cursor. Not inside code.
+    /// no `]`, `[` or `|` between it and the cursor. After a `#` it's the heading being typed
+    /// (`page` is set); after `#^`, a block reference, there's nothing to complete. Not inside code.
     public static func linkCompletionContext(in text: String, cursor: Int, syntax: PageSyntax) -> LinkCompletionContext? {
         let ns = text as NSString
         guard cursor <= ns.length, !isInCode(cursor, syntax) else { return nil }
         let line = lineContent(ns, at: cursor)
         let before = ns.substring(with: NSRange(location: line.location, length: cursor - line.location))
         guard let open = before.range(of: "[[", options: .backwards) else { return nil }
-        let query = String(before[open.upperBound...])
-        guard !query.contains(where: { "[]|#\n".contains($0) }) else { return nil }
-        let start = cursor - query.utf16.count
-        return LinkCompletionContext(range: start..<cursor, query: query)
+        let typed = String(before[open.upperBound...])
+        guard !typed.contains(where: { "[]|\n".contains($0) }) else { return nil }
+        guard let hash = typed.firstIndex(of: "#") else {
+            return LinkCompletionContext(range: (cursor - typed.utf16.count)..<cursor, query: typed)
+        }
+        let heading = String(typed[typed.index(after: hash)...])
+        guard !heading.hasPrefix("^") else { return nil }
+        let page = typed[..<hash].trimmingCharacters(in: .whitespaces)
+        return LinkCompletionContext(range: (cursor - heading.utf16.count)..<cursor, query: heading, page: page)
     }
 
-    /// Accepting a suggestion: the typed text becomes the target, and the link is closed with
+    /// Accepting a suggestion: the typed page or heading becomes its target, and the link is closed with
     /// `]]` unless it already was. The cursor goes after the link.
     public static func accept(_ completion: LinkCompletion, in context: LinkCompletionContext, text: String) -> TextEdit {
         let ns = text as NSString
