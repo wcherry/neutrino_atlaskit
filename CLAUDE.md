@@ -18,6 +18,10 @@ The shared Swift package of the Neutrino Atlas apps (macOS + iOS). Read the plat
 - **No plaintext leaves the device.** Titles, content, tags and the link graph are resolved
   and indexed here, on the client. Nothing in this package sends them to the server
   unencrypted (roadmap, constraint 2).
+- **Only `AtlasDrive` depends on `NeutrinoShared`** (`../neutrino_shared_ios`, by path), and
+  only on `NeutrinoCore` and `NeutrinoCrypto`. A change there can break this package; after
+  one, run `scripts/test-against-server.sh` as well as the unit tests. The adapter never sends
+  autosave's `metadata` part: its `title` becomes a plaintext rename.
 - **Encryption comes from `NeutrinoCrypto`.** Never add another E2EE implementation (root
   `CLAUDE.md`, rule 5). The index is sealed through the `IndexSealer` protocol, which the app
   implements with NeutrinoCrypto. Tests may use CryptoKit; production code in AtlasCore may not.
@@ -26,5 +30,6 @@ The shared Swift package of the Neutrino Atlas apps (macOS + iOS). Read the plat
   shipping.
 - **The parser reserves U+E000–U+E0FF** for its markers (see README). Any change to the
   preprocessor must keep `ParserFuzzTests` green: no traps, and no lost characters.
-- Test on both platforms: `swift test`, plus `xcodebuild test -scheme AtlasKit` on an iOS
-  simulator.
+- Test on both platforms: `swift test`, plus `xcodebuild test -scheme AtlasKit-Package` on an iOS
+  simulator. Changes to `AtlasDrive` or the sync engine also need
+  `scripts/test-against-server.sh`.
