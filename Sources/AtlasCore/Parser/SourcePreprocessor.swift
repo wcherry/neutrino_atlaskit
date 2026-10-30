@@ -25,6 +25,12 @@ struct SourcePreprocessor {
     var frontmatterLineCount = 0
     /// Placeholder tokens, indexed by the number encoded in the placeholder.
     var tokens: [Token]
+    /// Where each wiki link, embed and inline math token came from: character offsets into the
+    /// text inline protection ran on (the source without its BOM or frontmatter). In-place
+    /// link rewrites (SPEC §8.2) use these.
+    var tokenSourceRanges: [Int: Range<Int>] = [:]
+    /// The code spans inline protection skipped, as character offsets like `tokenSourceRanges`.
+    var codeSpanRanges: [Range<Int>] = []
 
     enum Token: Equatable {
         case wikiLink(WikiLinkReference, raw: String)
@@ -215,6 +221,7 @@ struct SourcePreprocessor {
                 var run = 0
                 while i + run < chars.count, chars[i + run] == "`" { run += 1 }
                 let end = Self.codeSpanEnd(chars, at: i) ?? i + run
+                if end > i + run { codeSpanRanges.append(i..<end) }
                 for k in i..<end { out += protectReserved(chars[k], chars, at: k) }
                 i = end; continue
             }
@@ -232,9 +239,11 @@ struct SourcePreprocessor {
                 }
             }
             if c == "$", let (end, token) = Self.inlineMath(chars, at: i) {
+                tokenSourceRanges[tokens.count] = i..<end
                 out += Self.placeholder(tokens.count); tokens.append(token); i = end; continue
             }
             if c == "!" || c == "[", let (end, token) = Self.wikiLink(chars, at: i) {
+                tokenSourceRanges[tokens.count] = i..<end
                 out += Self.placeholder(tokens.count); tokens.append(token); i = end; continue
             }
             out.append(c)
@@ -286,21 +295,21 @@ struct SourcePreprocessor {
         return i > 0 && chars[i - 1] == "[" && !isFootnoteLabel(chars, from: i + 1)
     }
 
-    /// The end of a code span starting at `i`: a matching run of exactly as many backticks,
-    /// not past a blank line. Nil when the run has no match, and is literal.
+    /// The end of a code span starting at `i`: a matching run of exactly as many backticks, on
+    /// the same line. Nil when there is none, and the run is literal.
+    ///
+    /// Only same-line spans are skipped. A code span can't cross a block boundary, and the
+    /// preprocessor can't see blocks: following a span onto the next line could swallow a list
+    /// item or quote that cmark starts there, leaving its wiki links unprotected. A multi-line
+    /// span is still parsed as code, because placeholders contain no backticks, and any token
+    /// inside it is restored as raw text.
     static func codeSpanEnd(_ chars: [Character], at i: Int) -> Int? {
         var n = 0
         while i + n < chars.count, chars[i + n] == "`" { n += 1 }
         var j = i + n
-        var lineHasContent = true
         while j < chars.count {
             let c = chars[j]
-            if c == "\n" || c == "\r\n" {
-                if !lineHasContent { return nil }
-                lineHasContent = false
-                j += 1; continue
-            }
-            if !c.isWhitespace { lineHasContent = true }
+            if c.isNewline { return nil }
             if c == "`" {
                 var m = 0
                 while j + m < chars.count, chars[j + m] == "`" { m += 1 }

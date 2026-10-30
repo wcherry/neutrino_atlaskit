@@ -236,8 +236,9 @@ struct BlockWriter {
             let indent = String(repeating: " ", count: marker.count + 1)
             var inner = blocks(kids, tight: !itemSpread, inDashItem: marker == "-" && checked == nil)
             if let checked {
+                // An empty task keeps the space after its box: without it, it isn't a task.
                 let box = checked ? "[x]" : "[ ]"
-                if inner.isEmpty { inner = [box] } else { inner[0] = box + " " + inner[0] }
+                if inner.isEmpty || inner[0].isEmpty { inner = [box + " "] + inner.dropFirst() } else { inner[0] = box + " " + inner[0] }
             }
             guard let first = inner.first else { out.append(marker); continue }
             out.append(first.isEmpty ? marker : marker + " " + first)

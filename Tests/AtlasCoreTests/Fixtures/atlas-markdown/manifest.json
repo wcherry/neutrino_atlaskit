@@ -1,5 +1,5 @@
 {
-  "specVersion": "1.0.0-draft.3",
+  "specVersion": "1.0.0-draft.4",
   "cases": [
     {
       "id": "core/paragraphs-headings",
@@ -252,6 +252,22 @@
     {
       "id": "core/autolink-raw-entities",
       "description": "Entity references stay undecoded in a bare extended autolink, in both url and text; canonical form writes it bare."
+    },
+    {
+      "id": "core/task-list-in-blockquote",
+      "description": "Task items are recognised in any container, blockquotes included."
+    },
+    {
+      "id": "core/task-checkbox-state",
+      "description": "A task is checked only by its own box, not by [x] later in its text."
+    },
+    {
+      "id": "core/empty-task-item",
+      "description": "A box followed only by its space is an empty task; canonical form keeps that space."
+    },
+    {
+      "id": "callouts/tasks",
+      "description": "Tasks inside a callout; a first child that is not a paragraph follows a > line in canonical form."
     }
   ],
   "resolve": [

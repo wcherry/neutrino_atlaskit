@@ -73,6 +73,33 @@ final class ParserFuzzTests: XCTestCase {
         }
     }
 
+    /// In-place edits (SPEC §8.2) on random pages: an in-place task toggle changes exactly one
+    /// byte, and whenever an edit reports `exact`, the page's bytes parse to its tree.
+    func testInPlaceEditsAreMinimalAndHonest() {
+        var rng = Generator(state: 0x7A5C)
+        let pieces = Array("[]!#=^$|\\`*_~<>-+.:() \t\n").map(String.init) + [
+            "a", "x", "- [ ] ", "- [x] ", "> ", "* [X] ", "1. [ ] ", "[[P]]", "[[ P |a]]", "![[P]]", "[[P#h]]",
+            "[t](P.md)", "[r]: P.md\n", "[r]", "`[[P]]`", "```\n", "| [[P\\|x]] |\n|-|\n",
+        ]
+        for _ in 0..<1500 {
+            let source = (0..<rng.next(40)).map { _ in pieces[rng.next(pieces.count)] }.joined()
+            var doc = MarkdownDocument(source: source)
+            for i in 0..<doc.taskCount {
+                let before = Array(doc.serialized().utf8)
+                let result = doc.setTask(at: i, checked: rng.next(2) == 0)
+                let after = Array(doc.serialized().utf8)
+                if result.inPlace {
+                    XCTAssertEqual(before.count, after.count, "toggle changed the length of \(source.debugDescription)")
+                    XCTAssertLessThanOrEqual(zip(before, after).filter { $0 != $1 }.count, 1, "toggle changed more than one byte of \(source.debugDescription)")
+                }
+                if result.exact { XCTAssertTrue(doc.isExact, "toggle claimed exact for \(source.debugDescription)") }
+            }
+            let result = doc.rewriteLinks(toRenamed: "P.md", as: "Q R.md", linkingPage: "Inbox.md",
+                                          before: LinkResolver(files: ["P.md", "Inbox.md"]), after: LinkResolver(files: ["Q R.md", "Inbox.md"]))
+            if result.exact { XCTAssertTrue(doc.isExact, "rename claimed exact for \(source.debugDescription)") }
+        }
+    }
+
     private static func containsFootnoteReference(_ node: MarkdownNode) -> Bool {
         if case .footnoteReference = node { return true }
         return node.children.contains(where: containsFootnoteReference)
