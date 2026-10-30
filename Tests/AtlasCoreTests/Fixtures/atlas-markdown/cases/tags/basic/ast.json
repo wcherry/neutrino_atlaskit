@@ -1,0 +1,106 @@
+{
+  "type": "root",
+  "children": [
+    {
+      "type": "paragraph",
+      "blockId": null,
+      "children": [
+        {
+          "type": "text",
+          "value": "Planning "
+        },
+        {
+          "type": "tag",
+          "name": "project/neutrino"
+        },
+        {
+          "type": "text",
+          "value": " and "
+        },
+        {
+          "type": "tag",
+          "name": "idea"
+        },
+        {
+          "type": "text",
+          "value": "."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "depth": 2,
+      "children": [
+        {
+          "type": "text",
+          "value": "Review "
+        },
+        {
+          "type": "tag",
+          "name": "todo"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "blockId": null,
+      "children": [
+        {
+          "type": "text",
+          "value": "Unicode: "
+        },
+        {
+          "type": "tag",
+          "name": "café"
+        },
+        {
+          "type": "text",
+          "value": " "
+        },
+        {
+          "type": "tag",
+          "name": "日本語"
+        },
+        {
+          "type": "text",
+          "value": " "
+        },
+        {
+          "type": "tag",
+          "name": "2026/q4"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "blockId": null,
+      "children": [
+        {
+          "type": "text",
+          "value": "Emphasised "
+        },
+        {
+          "type": "emphasis",
+          "children": [
+            {
+              "type": "tag",
+              "name": "idea"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "value": " and "
+        },
+        {
+          "type": "tag",
+          "name": "IDEA"
+        },
+        {
+          "type": "text",
+          "value": " again."
+        }
+      ]
+    }
+  ]
+}

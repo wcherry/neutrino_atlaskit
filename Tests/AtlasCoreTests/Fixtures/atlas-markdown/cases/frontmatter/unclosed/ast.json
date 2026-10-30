@@ -1,0 +1,18 @@
+{
+  "type": "root",
+  "children": [
+    {
+      "type": "thematicBreak"
+    },
+    {
+      "type": "paragraph",
+      "blockId": null,
+      "children": [
+        {
+          "type": "text",
+          "value": "Just a paragraph after a thematic break."
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,45 @@
+{
+  "type": "root",
+  "children": [
+    {
+      "type": "yaml",
+      "value": "title: Ignored by v1\ntags: [project/neutrino, \"#idea\"]\naliases:\n  - Neutrino roadmap\n  - Atlas plan"
+    },
+    {
+      "type": "heading",
+      "depth": 1,
+      "children": [
+        {
+          "type": "text",
+          "value": "Roadmap"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "blockId": null,
+      "children": [
+        {
+          "type": "text",
+          "value": "Body with "
+        },
+        {
+          "type": "tag",
+          "name": "idea"
+        },
+        {
+          "type": "text",
+          "value": " again and "
+        },
+        {
+          "type": "tag",
+          "name": "new"
+        },
+        {
+          "type": "text",
+          "value": "."
+        }
+      ]
+    }
+  ]
+}

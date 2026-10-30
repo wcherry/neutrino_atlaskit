@@ -1,0 +1,49 @@
+{
+  "type": "root",
+  "children": [
+    {
+      "type": "paragraph",
+      "blockId": null,
+      "children": [
+        {
+          "type": "text",
+          "value": "Code: "
+        },
+        {
+          "type": "inlineCode",
+          "value": "[[Not A Link]]"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "blockId": null,
+      "children": [
+        {
+          "type": "text",
+          "value": "Escaped: [[Also Not]]"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "blockId": null,
+      "children": [
+        {
+          "type": "text",
+          "value": "Empty: [[]] and [[ ]]"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "blockId": null,
+      "children": [
+        {
+          "type": "text",
+          "value": "Broken: [[Starts here\nand ends here]]"
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,37 @@
+{
+  "type": "root",
+  "children": [
+    {
+      "type": "paragraph",
+      "blockId": null,
+      "children": [
+        {
+          "type": "text",
+          "value": "Raw: "
+        },
+        {
+          "type": "wikiLink",
+          "target": "Notes\\*Draft",
+          "heading": null,
+          "blockId": null,
+          "alias": null
+        },
+        {
+          "type": "text",
+          "value": " and separator "
+        },
+        {
+          "type": "wikiLink",
+          "target": "Page",
+          "heading": null,
+          "blockId": null,
+          "alias": "alias"
+        },
+        {
+          "type": "text",
+          "value": "."
+        }
+      ]
+    }
+  ]
+}

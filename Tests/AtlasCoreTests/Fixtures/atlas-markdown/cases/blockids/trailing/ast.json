@@ -1,0 +1,58 @@
+{
+  "type": "root",
+  "children": [
+    {
+      "type": "paragraph",
+      "blockId": "insight",
+      "children": [
+        {
+          "type": "text",
+          "value": "A key insight."
+        }
+      ]
+    },
+    {
+      "type": "list",
+      "ordered": false,
+      "start": null,
+      "spread": false,
+      "blockId": null,
+      "children": [
+        {
+          "type": "listItem",
+          "checked": null,
+          "spread": false,
+          "children": [
+            {
+              "type": "paragraph",
+              "blockId": "item-1",
+              "children": [
+                {
+                  "type": "text",
+                  "value": "Item one"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "checked": null,
+          "spread": false,
+          "children": [
+            {
+              "type": "paragraph",
+              "blockId": null,
+              "children": [
+                {
+                  "type": "text",
+                  "value": "Item two"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

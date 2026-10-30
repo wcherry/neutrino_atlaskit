@@ -1,0 +1,164 @@
+{
+  "specVersion": "1.0.0-draft",
+  "cases": [
+    {
+      "id": "core/paragraphs-headings",
+      "description": "ATX headings and paragraphs; a soft line break stays in the text value as \\n."
+    },
+    {
+      "id": "core/inline-formatting",
+      "description": "Emphasis, strong, strikethrough, inline code and a backslash hard break."
+    },
+    {
+      "id": "core/bullet-list-nested",
+      "description": "A tight bullet list with a nested list indented by the content offset."
+    },
+    {
+      "id": "core/ordered-list",
+      "description": "An ordered list keeps its start number; markers count up from it."
+    },
+    {
+      "id": "core/loose-list",
+      "description": "A blank line between items makes the list spread (loose)."
+    },
+    {
+      "id": "core/task-list",
+      "description": "GFM task items: checked is true/false for tasks and null for plain items."
+    },
+    {
+      "id": "core/code-fences",
+      "description": "Fenced code with a language, with lang + meta, and with neither."
+    },
+    {
+      "id": "core/blockquote",
+      "description": "A blockquote with two paragraphs; \">\" alone marks the blank line inside it."
+    },
+    {
+      "id": "core/table",
+      "description": "A GFM table with left, right and centre alignment."
+    },
+    {
+      "id": "core/links-images",
+      "description": "Inline links and images, and the three autolink forms written as autolinks."
+    },
+    {
+      "id": "core/thematic-break-html",
+      "description": "A thematic break and a raw HTML block."
+    },
+    {
+      "id": "noncanonical/setext-headings",
+      "description": "Setext headings parse as headings and are written in ATX form."
+    },
+    {
+      "id": "noncanonical/alternative-markers",
+      "description": "\"*\" bullets, \")\" ordered markers and underscore emphasis are written as \"-\", \".\" and \"*\"."
+    },
+    {
+      "id": "noncanonical/adjacent-lists",
+      "description": "Two adjacent bullet lists: the second is written with the other marker so they do not merge."
+    },
+    {
+      "id": "noncanonical/hard-break-spaces",
+      "description": "A two-space hard break is written as a backslash hard break."
+    },
+    {
+      "id": "noncanonical/crlf",
+      "description": "CRLF line endings parse like LF. R preserves them; canonical.md uses LF."
+    },
+    {
+      "id": "noncanonical/bom",
+      "description": "A leading UTF-8 BOM is ignored by the parser, kept by R, and never written by canonical serialization."
+    },
+    {
+      "id": "noncanonical/indented-code",
+      "description": "Indented code parses as code and is written fenced."
+    },
+    {
+      "id": "noncanonical/tab-indented-list",
+      "description": "Obsidian's default tab-indented nesting parses as nested; canonical form indents with spaces."
+    },
+    {
+      "id": "wikilinks/basic",
+      "description": "Plain wiki links."
+    },
+    {
+      "id": "wikilinks/heading-block-alias",
+      "description": "Heading links, block references, aliases, and same-page links with an empty target."
+    },
+    {
+      "id": "wikilinks/whitespace-trimmed",
+      "description": "Target and alias are trimmed; an empty alias is null. Canonical form writes the trimmed fields."
+    },
+    {
+      "id": "wikilinks/raw-content",
+      "description": "Bracket content is raw: escapes are not processed, except that \\| is the alias separator."
+    },
+    {
+      "id": "wikilinks/not-links",
+      "description": "Code spans, an escaped opening bracket, empty brackets and a line break all prevent a wiki link."
+    },
+    {
+      "id": "wikilinks/in-table",
+      "description": "In a table cell the alias separator is written \\|; GFM unescapes it before inline parsing."
+    },
+    {
+      "id": "wikilinks/markdown-links",
+      "description": "Standard links to relative .md paths are internal links (kind \"markdown\"); everything else is external."
+    },
+    {
+      "id": "embeds/basic",
+      "description": "Embeds of an attachment with a size hint, of a page section, and inline."
+    },
+    {
+      "id": "tags/basic",
+      "description": "Nested, Unicode and digit-led tags; tags in headings and emphasis; case-insensitive de-duplication in extract."
+    },
+    {
+      "id": "tags/not-tags",
+      "description": "Headings, mid-word #, digit-only tags, trailing slashes, code and link text."
+    },
+    {
+      "id": "highlight/basic",
+      "description": "==text== is a highlight; spaced == is not."
+    },
+    {
+      "id": "blockids/trailing",
+      "description": "A trailing ^id names the paragraph, including a list item's first paragraph."
+    },
+    {
+      "id": "blockids/standalone",
+      "description": "A standalone ^id after a table or code block names that block; after a paragraph it stays text."
+    },
+    {
+      "id": "callouts/basic",
+      "description": "A folded callout with a formatted title and body; a body-only callout; a title-only callout."
+    },
+    {
+      "id": "callouts/plain-blockquotes",
+      "description": "A marker that is not at the start, or has a space after \"!\", leaves a plain blockquote."
+    },
+    {
+      "id": "math/basic",
+      "description": "Inline math, prices that are not math (pandoc rule), and a $$ block."
+    },
+    {
+      "id": "frontmatter/tags-aliases",
+      "description": "Frontmatter tags (flow sequence, one with a leading #) come first in extract; aliases from a block sequence."
+    },
+    {
+      "id": "frontmatter/string-forms",
+      "description": "String tags split on commas and whitespace (\" #delta\" is a YAML comment, so not a tag); a string alias is not split. Canonical form adds the blank line after frontmatter."
+    },
+    {
+      "id": "frontmatter/invalid-yaml",
+      "description": "Invalid YAML contributes nothing to extract, and the page still parses."
+    },
+    {
+      "id": "frontmatter/unclosed",
+      "description": "Without a closing line there is no frontmatter: the --- is a thematic break."
+    }
+  ],
+  "resolve": [
+    "vault"
+  ]
+}

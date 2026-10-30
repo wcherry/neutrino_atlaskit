@@ -1,0 +1,23 @@
+{
+  "type": "root",
+  "children": [
+    {
+      "type": "yaml",
+      "value": "tags: [unclosed"
+    },
+    {
+      "type": "paragraph",
+      "blockId": null,
+      "children": [
+        {
+          "type": "text",
+          "value": "Still opens. "
+        },
+        {
+          "type": "tag",
+          "name": "ok"
+        }
+      ]
+    }
+  ]
+}

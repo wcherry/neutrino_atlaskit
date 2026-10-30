@@ -1,0 +1,25 @@
+{
+  "type": "root",
+  "children": [
+    {
+      "type": "heading",
+      "depth": 1,
+      "children": [
+        {
+          "type": "text",
+          "value": "Heading"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "blockId": null,
+      "children": [
+        {
+          "type": "text",
+          "value": "Body line one\nline two"
+        }
+      ]
+    }
+  ]
+}

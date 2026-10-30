@@ -1,0 +1,27 @@
+{
+  "links": [],
+  "embeds": [
+    {
+      "target": "Diagram.png",
+      "heading": null,
+      "blockId": null,
+      "alias": "300"
+    },
+    {
+      "target": "Roadmap",
+      "heading": "Phase 1",
+      "blockId": null,
+      "alias": null
+    },
+    {
+      "target": "icon.svg",
+      "heading": null,
+      "blockId": null,
+      "alias": null
+    }
+  ],
+  "tags": [],
+  "aliases": [],
+  "headings": [],
+  "blockIds": []
+}

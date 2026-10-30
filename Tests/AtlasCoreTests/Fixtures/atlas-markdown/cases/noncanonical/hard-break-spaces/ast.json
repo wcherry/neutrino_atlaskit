@@ -1,0 +1,22 @@
+{
+  "type": "root",
+  "children": [
+    {
+      "type": "paragraph",
+      "blockId": null,
+      "children": [
+        {
+          "type": "text",
+          "value": "Line one"
+        },
+        {
+          "type": "break"
+        },
+        {
+          "type": "text",
+          "value": "Line two"
+        }
+      ]
+    }
+  ]
+}

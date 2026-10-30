@@ -1,0 +1,2 @@
+# The vendored Atlas Markdown corpus is exact bytes: its CRLF and BOM inputs are test cases.
+Tests/AtlasCoreTests/Fixtures/atlas-markdown/** -text

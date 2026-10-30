@@ -1,0 +1,80 @@
+{
+  "type": "root",
+  "children": [
+    {
+      "type": "callout",
+      "calloutType": "warning",
+      "fold": "-",
+      "title": [
+        {
+          "type": "text",
+          "value": "Mind the "
+        },
+        {
+          "type": "strong",
+          "children": [
+            {
+              "type": "text",
+              "value": "gap"
+            }
+          ]
+        }
+      ],
+      "blockId": null,
+      "children": [
+        {
+          "type": "paragraph",
+          "blockId": null,
+          "children": [
+            {
+              "type": "text",
+              "value": "Body line."
+            }
+          ]
+        },
+        {
+          "type": "paragraph",
+          "blockId": null,
+          "children": [
+            {
+              "type": "text",
+              "value": "Second paragraph."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "callout",
+      "calloutType": "NOTE",
+      "fold": null,
+      "title": null,
+      "blockId": null,
+      "children": [
+        {
+          "type": "paragraph",
+          "blockId": null,
+          "children": [
+            {
+              "type": "text",
+              "value": "Only a body."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "callout",
+      "calloutType": "tip",
+      "fold": null,
+      "title": [
+        {
+          "type": "text",
+          "value": "Title only"
+        }
+      ],
+      "blockId": null,
+      "children": []
+    }
+  ]
+}

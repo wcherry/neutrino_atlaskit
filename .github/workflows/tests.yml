@@ -1,0 +1,56 @@
+# AtlasKit builds for macOS and iOS (both Atlas apps consume it by local path), so its tests run on
+# both for every push and pull request. A third job fails when the vendored Atlas Markdown corpus
+# has drifted from neutrino/specs/atlas-markdown/corpus on main: the tests would otherwise pass
+# against an out-of-date spec. The fix is `scripts/sync-atlas-markdown-corpus.sh`.
+name: Tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  macos:
+    name: macOS
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Show toolchain
+        run: swift --version
+      - name: Test
+        run: swift test
+
+  ios:
+    name: iOS Simulator
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Pick a simulator
+        id: sim
+        run: |
+          id=$(xcrun simctl list devices available -j \
+            | python3 -c 'import json,sys; d=json.load(sys.stdin)["devices"]; print(next(x["udid"] for k,v in sorted(d.items(), reverse=True) if "iOS" in k for x in v if x["name"].startswith("iPhone")))')
+          echo "id=$id" >> "$GITHUB_OUTPUT"
+      - name: Test
+        run: |
+          xcodebuild test \
+            -scheme AtlasKit \
+            -destination "id=${{ steps.sim.outputs.id }}" \
+            -derivedDataPath .build/xcode-ios
+
+  corpus:
+    name: Corpus in sync with neutrino
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/checkout@v4
+        with:
+          repository: wcherry/neutrino
+          path: neutrino
+          sparse-checkout: specs/atlas-markdown
+      - name: Vendored corpus matches neutrino main
+        run: NEUTRINO_DIR="$GITHUB_WORKSPACE/neutrino" scripts/sync-atlas-markdown-corpus.sh --check

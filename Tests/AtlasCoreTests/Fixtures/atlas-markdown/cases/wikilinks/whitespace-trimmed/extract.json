@@ -1,0 +1,23 @@
+{
+  "links": [
+    {
+      "kind": "wiki",
+      "target": "Spaced Title",
+      "heading": null,
+      "blockId": null,
+      "alias": "shown"
+    },
+    {
+      "kind": "wiki",
+      "target": "Page",
+      "heading": null,
+      "blockId": null,
+      "alias": null
+    }
+  ],
+  "embeds": [],
+  "tags": [],
+  "aliases": [],
+  "headings": [],
+  "blockIds": []
+}

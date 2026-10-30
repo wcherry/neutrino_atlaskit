@@ -1,0 +1,88 @@
+{
+  "type": "root",
+  "children": [
+    {
+      "type": "table",
+      "align": [
+        null,
+        null
+      ],
+      "blockId": "table-id",
+      "children": [
+        {
+          "type": "tableRow",
+          "children": [
+            {
+              "type": "tableCell",
+              "children": [
+                {
+                  "type": "text",
+                  "value": "A"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "children": [
+                {
+                  "type": "text",
+                  "value": "B"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "children": [
+            {
+              "type": "tableCell",
+              "children": [
+                {
+                  "type": "text",
+                  "value": "1"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "children": [
+                {
+                  "type": "text",
+                  "value": "2"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "code",
+      "lang": "js",
+      "meta": null,
+      "value": "x()",
+      "blockId": "code-id"
+    },
+    {
+      "type": "paragraph",
+      "blockId": null,
+      "children": [
+        {
+          "type": "text",
+          "value": "A paragraph."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "blockId": null,
+      "children": [
+        {
+          "type": "text",
+          "value": "^not-attached"
+        }
+      ]
+    }
+  ]
+}
