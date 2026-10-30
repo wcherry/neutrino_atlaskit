@@ -105,4 +105,47 @@ final class AtlasTextViewTests: XCTestCase {
         XCTAssertEqual(content(view), "- [ ] a\n  - [x] b")
         XCTAssertEqual(changes.last, "- [ ] a\n  - [x] b")
     }
+
+    private func type(_ view: AtlasTextView, _ text: String) {
+        #if canImport(AppKit) && !targetEnvironment(macCatalyst)
+        view.insertText(text, replacementRange: view.selectedRange())
+        #else
+        view.insertText(text)
+        #endif
+    }
+
+    func testTypingAWikiLinkSuggestsPagesAndAcceptingClosesIt() {
+        let view = make("")
+        var queries: [String] = []
+        view.linkCompletions = { query in
+            queries.append(query)
+            return [LinkCompletion(title: "Plan", target: "Plan", detail: "Projects")].filter { query.isEmpty || $0.title.hasPrefix(query) }
+        }
+        type(view, "See [[Pl")
+        #if canImport(AppKit) && !targetEnvironment(macCatalyst)
+        XCTAssertEqual(view.currentLinkCompletions().map(\.title), ["Plan"])
+        view.acceptLinkCompletion(LinkCompletion(title: "Plan", target: "Plan"))
+        #else
+        XCTAssertEqual(view.currentLinkCompletions.map(\.title), ["Plan"])
+        view.acceptLinkCompletion(view.currentLinkCompletions[0])
+        #endif
+        XCTAssertEqual(queries.last, "Pl")
+        XCTAssertEqual(content(view), "See [[Plan]]")
+    }
+
+    func testClickingALinkShownAsALinkOpensIt() {
+        let view = make("Go to [[Plan]] now\n")
+        var opened: [LinkTarget] = []
+        view.onOpenLink = { opened.append($0) }
+        select(view, NSRange(location: 0, length: 0))
+        #if canImport(AppKit) && !targetEnvironment(macCatalyst)
+        XCTAssertTrue(view.openLink(at: 9, commandKey: false))
+        select(view, NSRange(location: 9, length: 0))
+        XCTAssertFalse(view.openLink(at: 9, commandKey: false), "with the cursor in it, a click edits it")
+        XCTAssertTrue(view.openLink(at: 9, commandKey: true))
+        XCTAssertEqual(opened, [.wiki(WikiLinkReference(target: "Plan")), .wiki(WikiLinkReference(target: "Plan"))])
+        #else
+        XCTAssertEqual(MarkdownEditing.shouldOpenLink(at: 9, in: view.syntax, selection: 0..<0, mode: view.mode, commandKey: false), .wiki(WikiLinkReference(target: "Plan")))
+        #endif
+    }
 }
