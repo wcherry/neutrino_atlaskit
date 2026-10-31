@@ -1,5 +1,6 @@
 import AtlasCore
 import Foundation
+import NeutrinoCore
 import NeutrinoCrypto
 import XCTest
 @testable import AtlasDrive
@@ -120,6 +121,72 @@ final class DriveVaultIntegrationTests: XCTestCase {
         try await drive.delete(file.id)
         let empty = try await other.list()
         XCTAssertEqual(empty, [])
+    }
+
+    /// A file uploaded the way Neutrino Notes stores one: `text/markdown`, named by its title.
+    /// `dek` encrypts the body (as raw bytes, or as base64url text as an older client did);
+    /// without one it's stored as plain text.
+    private func uploadNote(_ account: Account, title: String, body: String, dek: [UInt8]? = nil, base64: Bool = false,
+                            folder: String? = nil) async throws -> String {
+        var form = MultipartFormBody()
+        if let folder { form.appendField(name: "folder_id", value: folder) }
+        form.appendField(name: "mime_type", value: "text/markdown")
+        var content = Data(body.utf8)
+        if let dek {
+            let active = account.keyring.activeKeyPair()!
+            form.appendField(name: "encrypted_file_key", value: try DriveFileCrypto.seal(dek: dek, toPublicKey: active.publicKey))
+            form.appendField(name: "key_version", value: String(active.version))
+            content = try DriveFileCrypto.encrypt(content, dek: dek)
+            if base64 { content = Data(content.base64URLEncodedString.utf8) }
+        }
+        form.appendFile(name: "file", fileName: title, mimeType: "text/markdown", data: content)
+        var request = URLRequest(url: server.appendingPathComponent("/api/v1/drive/files/upload"))
+        request.httpMethod = "POST"
+        request.setValue("Bearer \(account.token.value)", forHTTPHeaderField: "Authorization")
+        request.setValue(form.contentType, forHTTPHeaderField: "Content-Type")
+        request.httpBody = form.finalized()
+        let (data, response) = try await URLSession.shared.data(for: request)
+        XCTAssertEqual((response as! HTTPURLResponse).statusCode, 200, String(decoding: data, as: UTF8.self))
+        return (try JSONSerialization.jsonObject(with: data) as! [String: Any])["id"] as! String
+    }
+
+    // MARK: Neutrino Notes
+
+    @MainActor
+    func testNeutrinoNotesAreReadForImport() async throws {
+        let account = try await newAccount()
+        let userID = account.keyring.userId
+        // The vault's own pages are Markdown too, and must not count as notes.
+        let vault = try await DriveVaultRemote.createVault(named: "Atlas", baseURL: server, tokens: account.token)
+        _ = try await remote(account, vault: vault).create(at: "Page.md", data: Data("vault page\n".utf8))
+        // A note in a folder, encrypted as clients write notes today.
+        let work = try await DriveVaultRemote.createVault(named: "Work", baseURL: server, tokens: account.token)
+        _ = try await uploadNote(account, title: "Q4 plan", body: "# Q4 plan\n\nSee [[Ideas]].\n", dek: DriveFileCrypto.newDEK(), folder: work)
+        // An older client's base64url ciphertext, a note never encrypted, and a file that isn't a note.
+        _ = try await uploadNote(account, title: "Old one", body: "Kept as base64.\n", dek: DriveFileCrypto.newDEK(), base64: true)
+        _ = try await uploadNote(account, title: "Ideas", body: "- one\n- two\n")
+        var form = MultipartFormBody()
+        form.appendFile(name: "file", fileName: "photo.png", mimeType: "image/png", data: Data([0x89, 0x50]))
+        var request = URLRequest(url: server.appendingPathComponent("/api/v1/drive/files/upload"))
+        request.httpMethod = "POST"
+        request.setValue("Bearer \(account.token.value)", forHTTPHeaderField: "Authorization")
+        request.setValue(form.contentType, forHTTPHeaderField: "Content-Type")
+        request.httpBody = form.finalized()
+        _ = try await URLSession.shared.data(for: request)
+
+        let notes = NeutrinoNotes(baseURL: server, keys: account.keyring, tokens: account.token)
+        let listed = try await notes.list(userID: userID, excluding: [vault])
+        XCTAssertEqual(listed.map(\.path), ["Ideas.md", "Old one.md", "Work/Q4 plan.md"])
+
+        let snapshot = try await notes.snapshot(userID: userID, excluding: [vault])
+        let byPath = Dictionary(uniqueKeysWithValues: snapshot.files.map { ($0.path, String(decoding: $0.data, as: UTF8.self)) })
+        XCTAssertEqual(byPath, ["Ideas.md": "- one\n- two\n", "Old one.md": "Kept as base64.\n", "Work/Q4 plan.md": "# Q4 plan\n\nSee [[Ideas]].\n"])
+
+        // Imported into a vault folder, the link between notes resolves.
+        let workspace = try VaultWorkspace(vault: try Vault(storage: MemoryStorage()), remote: remote(account, vault: vault))
+        let report = try workspace.importFiles(snapshot, into: "Neutrino Notes")
+        XCTAssertEqual(report.imported.sorted(), ["Neutrino Notes/Ideas.md", "Neutrino Notes/Old one.md", "Neutrino Notes/Work/Q4 plan.md"])
+        XCTAssertTrue(report.unresolvedLinks.isEmpty)
     }
 
     func testKeyRotationKeepsOldFilesReadable() async throws {

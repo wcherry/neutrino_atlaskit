@@ -11,6 +11,11 @@ public struct FolderSnapshot: Sendable {
     /// pages is no place for a disk image, and a mistaken folder choice shouldn't upload one.
     public static let maxFileSize = 100 * 1024 * 1024
 
+    public init(files: [(path: String, data: Data)], tooLarge: [String] = []) {
+        self.files = files
+        self.tooLarge = tooLarge
+    }
+
     /// Reads every file under `folder`. Skips hidden files and folders, so Obsidian's
     /// `.obsidian` settings and `.trash`, `.git` and `.DS_Store` stay out. Also skips symbolic
     /// links, so nothing outside the folder is read.

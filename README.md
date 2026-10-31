@@ -247,6 +247,17 @@ Obsidian resolves them, so nothing is rewritten.
   is overwritten, and importing the same folder twice adds nothing.
 - The report lists the wiki links that still resolve to nothing.
 
+`NeutrinoNotes` (in AtlasDrive) reads the user's Neutrino Notes into a `FolderSnapshot` for the
+same import. A note is a `text/markdown` Drive file named by its title, anywhere in the Drive,
+with a Markdown body.
+- `list(userID:excluding:)` walks the Drive from its root with `?type=note`. It leaves out the
+  vault's own folder, whose pages are Markdown files too.
+- `read` decrypts a body the way the web editor does: raw ciphertext, or the base64url text an
+  older client saved. A note never encrypted, or one whose bytes are still plain note text, is
+  read as it is.
+- Notes come in at their Drive paths, `Folder/Title.md`, so `[[Title]]` links between notes
+  resolve.
+
 `exportFiles()` is the vault, decrypted. `FolderSnapshot.write(to:)` writes it into a folder
 that must be new or empty, so an export never mixes with other files or overwrites them.
 
