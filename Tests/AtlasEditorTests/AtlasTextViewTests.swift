@@ -134,6 +134,27 @@ final class AtlasTextViewTests: XCTestCase {
         XCTAssertEqual(content(view), "See [[Plan]]")
     }
 
+    func testTypingASlashOffersCommands() {
+        let view = make("Plans")
+        select(view, NSRange(location: 5, length: 0))
+        type(view, " /h2")
+        #if canImport(AppKit) && !targetEnvironment(macCatalyst)
+        XCTAssertEqual(view.currentSlashCommands().map(\.id), ["h2"])
+        view.applySlashCommand(view.currentSlashCommands()[0])
+        #else
+        XCTAssertEqual(view.currentSlashCommands.map(\.id), ["h2"])
+        view.applySlashCommand(view.currentSlashCommands[0])
+        #endif
+        XCTAssertEqual(content(view), "## Plans")
+        view.slashCommands = nil
+        type(view, " /h")
+        #if canImport(AppKit) && !targetEnvironment(macCatalyst)
+        XCTAssertEqual(view.currentSlashCommands(), [])
+        #else
+        XCTAssertEqual(view.currentSlashCommands, [])
+        #endif
+    }
+
     func testRevealingAHeadingSelectsItsStart() {
         let view = make("# Top\n\n" + String(repeating: "Line\n\n", count: 80) + "## Far down\n\nText ^tail\n")
         let heading = (content(view) as NSString).range(of: "## Far down").location
