@@ -1,9 +1,8 @@
-# AtlasKit builds for macOS and iOS (both Atlas apps consume it by local path), so its tests run on
-# both for every push and pull request. AtlasDrive depends on `../neutrino_shared_ios` by path, so
-# each job checks this repo out into a subdirectory with neutrino_shared_ios beside it, as on a
-# developer's machine. The Drive job runs AtlasDrive against a real server built from neutrino
-# main. The corpus job fails when the vendored Atlas Markdown corpus has drifted from
-# neutrino/specs/atlas-markdown/corpus on main: the tests would otherwise pass against an
+# GitHub's macOS runners are not used (they bill at ten times Linux minutes), so the Swift tests
+# run on a developer's Mac before a PR: `swift test`, the iOS Simulator run and
+# `scripts/test-against-server.sh` (CLAUDE.md). CI keeps the check that needs no Mac: the corpus
+# job fails when the vendored Atlas Markdown corpus has drifted from
+# neutrino/specs/atlas-markdown/corpus on main, since the tests would otherwise pass against an
 # out-of-date spec. The fix is `scripts/sync-atlas-markdown-corpus.sh`.
 name: Tests
 
@@ -17,81 +16,6 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  macos:
-    name: macOS
-    runs-on: macos-15
-    defaults:
-      run:
-        working-directory: neutrino_atlaskit
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          path: neutrino_atlaskit
-      - uses: actions/checkout@v4
-        with:
-          repository: wcherry/neutrino_shared_ios
-          path: neutrino_shared_ios
-      - name: Show toolchain
-        run: swift --version
-      - name: Test
-        run: swift test
-
-  ios:
-    name: iOS Simulator
-    runs-on: macos-15
-    defaults:
-      run:
-        working-directory: neutrino_atlaskit
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          path: neutrino_atlaskit
-      - uses: actions/checkout@v4
-        with:
-          repository: wcherry/neutrino_shared_ios
-          path: neutrino_shared_ios
-      - name: Pick a simulator
-        id: sim
-        run: |
-          id=$(xcrun simctl list devices available -j \
-            | python3 -c 'import json,sys; d=json.load(sys.stdin)["devices"]; print(next(x["udid"] for k,v in sorted(d.items(), reverse=True) if "iOS" in k for x in v if x["name"].startswith("iPhone")))')
-          echo "id=$id" >> "$GITHUB_OUTPUT"
-      - name: Test
-        run: |
-          xcodebuild test \
-            -scheme AtlasKit-Package \
-            -destination "id=${{ steps.sim.outputs.id }}" \
-            -derivedDataPath .build/xcode-ios
-
-  drive:
-    name: Drive against a real server
-    runs-on: macos-15
-    defaults:
-      run:
-        working-directory: neutrino_atlaskit
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          path: neutrino_atlaskit
-      - uses: actions/checkout@v4
-        with:
-          repository: wcherry/neutrino_shared_ios
-          path: neutrino_shared_ios
-      - uses: actions/checkout@v4
-        with:
-          repository: wcherry/neutrino
-          path: neutrino
-      - uses: actions/cache@v4
-        with:
-          path: |
-            ~/.cargo/registry
-            ~/.cargo/git
-            neutrino/target
-          key: neutrino-${{ runner.os }}-${{ hashFiles('neutrino/Cargo.lock') }}
-          restore-keys: neutrino-${{ runner.os }}-
-      - name: Test
-        run: scripts/test-against-server.sh
-
   corpus:
     name: Corpus in sync with neutrino
     runs-on: ubuntu-latest

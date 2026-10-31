@@ -37,3 +37,6 @@ The shared Swift package of the Neutrino Atlas apps (macOS + iOS). Read the plat
 - Test on both platforms: `swift test`, plus `xcodebuild test -scheme AtlasKit-Package` on an iOS
   simulator. Changes to `AtlasDrive` or the sync engine also need
   `scripts/test-against-server.sh`.
+- **Never add a macOS (or iOS) job to GitHub Actions.** macOS runners bill at ten times Linux
+  minutes, so CI runs only the Linux corpus check, and the tests above run locally before every
+  PR. Say in the PR that they passed.

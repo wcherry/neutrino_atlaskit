@@ -176,7 +176,7 @@ committed only after the server accepted it, so an interrupted pass resumes safe
 
 `VaultSyncTests` runs a three-device property test with random edits, moves, deletions and
 interrupted syncs. Every device must converge to the server's state, and every line ever
-written must survive unless some device removed it. It runs 40 seeds in CI; it has passed
+written must survive unless some device removed it. It runs 40 seeds by default; it has passed
 3,000 seeds of 200 operations (`ATLAS_SYNC_SEEDS`, `ATLAS_SYNC_OPS`). At 5,000 files, a first
 sync takes 0.19 s and a pass with nothing to do 55 ms, against an in-memory server.
 
