@@ -34,6 +34,10 @@ public final class AtlasTextView: NSTextView {
     public var linkCompletions: ((LinkCompletionContext) -> [LinkCompletion])?
     private var offered: [LinkCompletion] = []
 
+    /// The `/` menu's commands. Nil turns the menu off.
+    public var slashCommands: (() -> [SlashCommand])? = { SlashCommand.builtIn() }
+    private var offeredCommands: [SlashCommand] = []
+
     public convenience init() { self.init(frame: .zero) }
 
     override public convenience init(frame: NSRect) {
@@ -103,11 +107,35 @@ public final class AtlasTextView: NSTextView {
         return MarkdownEditing.linkCompletionContext(in: string, cursor: selection.lowerBound, syntax: syntax)
     }
 
-    /// Typing inside `[[` opens the system completion list, narrowed as the typing goes on.
+    private var slashContext: SlashContext? {
+        guard slashCommands != nil, selection.isEmpty, completionContext == nil else { return nil }
+        return MarkdownEditing.slashContext(in: string, cursor: selection.lowerBound, syntax: syntax)
+    }
+
+    /// Typing inside `[[`, or a `/` command, opens the system completion list, narrowed as the
+    /// typing goes on.
     private func offerLinkCompletions() {
-        guard !hasMarkedText(), window != nil, let context = completionContext, let provider = linkCompletions else { return }
-        offered = provider(context)
-        if !offered.isEmpty { complete(nil) }
+        guard !hasMarkedText(), window != nil else { return }
+        if let context = completionContext, let provider = linkCompletions {
+            offered = provider(context)
+            if !offered.isEmpty { complete(nil) }
+        } else if slashContext != nil, !currentSlashCommands().isEmpty {
+            complete(nil)
+        }
+    }
+
+    /// The `/` commands for what's typed after the `/`. Exposed for tests, like
+    /// `currentLinkCompletions`.
+    public func currentSlashCommands() -> [SlashCommand] {
+        guard let context = slashContext, let provider = slashCommands else { return [] }
+        offeredCommands = MarkdownEditing.slashCommands(provider(), matching: context.query)
+        return offeredCommands
+    }
+
+    /// Runs a `/` command in place of the `/` being typed.
+    public func applySlashCommand(_ command: SlashCommand, in context: SlashContext? = nil) {
+        guard let context = context ?? slashContext else { return }
+        perform(MarkdownEditing.apply(command, in: context, text: string), actionName: command.title)
     }
 
     /// The completions for a wiki link being typed. Exposed for tests; the system list calls
@@ -119,26 +147,38 @@ public final class AtlasTextView: NSTextView {
     }
 
     override public var rangeForUserCompletion: NSRange {
-        guard let context = completionContext else { return super.rangeForUserCompletion }
-        return NSRange(location: context.range.lowerBound, length: context.range.count)
+        if let context = completionContext { return NSRange(location: context.range.lowerBound, length: context.range.count) }
+        if let context = slashContext { return NSRange(location: context.range.lowerBound, length: context.range.count) }
+        return super.rangeForUserCompletion
     }
 
     override public func completions(forPartialWordRange charRange: NSRange, indexOfSelectedItem index: UnsafeMutablePointer<Int>) -> [String]? {
-        guard completionContext != nil else { return super.completions(forPartialWordRange: charRange, indexOfSelectedItem: index) }
-        index.pointee = 0
-        return offered.map { c in c.detail.map { "\(c.title) — \($0)" } ?? c.title }
+        if completionContext != nil {
+            index.pointee = 0
+            return offered.map { c in c.detail.map { "\(c.title) — \($0)" } ?? c.title }
+        }
+        if slashContext != nil {
+            index.pointee = 0
+            return currentSlashCommands().map(\.title)
+        }
+        return super.completions(forPartialWordRange: charRange, indexOfSelectedItem: index)
     }
 
     override public func insertCompletion(_ word: String, forPartialWordRange charRange: NSRange, movement: Int, isFinal flag: Bool) {
-        guard let context = completionContext else {
-            return super.insertCompletion(word, forPartialWordRange: charRange, movement: movement, isFinal: flag)
-        }
         // Only a final choice by Return, Tab or click inserts: arrowing through the list
         // previews nothing, and Escape leaves the typed text as it was.
-        guard flag, movement != NSCancelTextMovement, movement != NSOtherTextMovement || !word.isEmpty else { return }
-        let shown = offered.map { c in c.detail.map { "\(c.title) — \($0)" } ?? c.title }
-        guard let i = shown.firstIndex(of: word) else { return }
-        acceptLinkCompletion(offered[i], in: context)
+        let chosen = flag && movement != NSCancelTextMovement && (movement != NSOtherTextMovement || !word.isEmpty)
+        if let context = completionContext {
+            guard chosen else { return }
+            let shown = offered.map { c in c.detail.map { "\(c.title) — \($0)" } ?? c.title }
+            guard let i = shown.firstIndex(of: word) else { return }
+            acceptLinkCompletion(offered[i], in: context)
+        } else if let context = slashContext {
+            guard chosen, let command = offeredCommands.first(where: { $0.title == word }) else { return }
+            applySlashCommand(command, in: context)
+        } else {
+            super.insertCompletion(word, forPartialWordRange: charRange, movement: movement, isFinal: flag)
+        }
     }
 
     /// Inserts a suggestion for the wiki link being typed.

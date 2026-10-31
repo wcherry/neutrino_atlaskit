@@ -31,7 +31,12 @@ public final class AtlasTextView: UITextView, UITextViewDelegate {
 
     /// Suggestions for a wiki link being typed, shown above the keyboard.
     public var linkCompletions: ((LinkCompletionContext) -> [LinkCompletion])?
-    private lazy var suggestionBar = LinkSuggestionBar { [weak self] in self?.acceptLinkCompletion($0) }
+    private lazy var suggestionBar = LinkSuggestionBar { [weak self] in self?.acceptSuggestion($0) }
+
+    /// The `/` menu's commands, shown above the keyboard. Nil turns the menu off.
+    public var slashCommands: (() -> [SlashCommand])? = { SlashCommand.builtIn() }
+    /// What the bar offers while a `/` command is typed.
+    public private(set) var currentSlashCommands: [SlashCommand] = []
 
     public convenience init() { self.init(frame: .zero) }
 
@@ -109,14 +114,41 @@ public final class AtlasTextView: UITextView, UITextViewDelegate {
     /// What the suggestion bar offers right now.
     public var currentLinkCompletions: [LinkCompletion] { suggestionBar.completions }
 
+    private var slashContext: SlashContext? {
+        guard slashCommands != nil, selection.isEmpty, completionContext == nil else { return nil }
+        return MarkdownEditing.slashContext(in: text, cursor: selection.lowerBound, syntax: syntax)
+    }
+
     private func updateSuggestions() {
-        let completions = completionContext.flatMap { context in linkCompletions?(context) } ?? []
-        suggestionBar.completions = Array(completions.prefix(6))
+        var completions = completionContext.flatMap { context in linkCompletions?(context) } ?? []
+        currentSlashCommands = []
+        if completions.isEmpty, let context = slashContext, let provider = slashCommands {
+            currentSlashCommands = Array(MarkdownEditing.slashCommands(provider(), matching: context.query).prefix(8))
+            // The bar shows commands as suggestions; the target carries the command's id.
+            completions = currentSlashCommands.map { LinkCompletion(title: $0.title, target: $0.id) }
+        }
+        suggestionBar.isCommands = !currentSlashCommands.isEmpty
+        suggestionBar.completions = Array(completions.prefix(8))
         let wanted: UIView? = completions.isEmpty ? nil : suggestionBar
         if inputAccessoryView !== wanted {
             inputAccessoryView = wanted
             reloadInputViews()
         }
+    }
+
+    private func acceptSuggestion(_ suggestion: LinkCompletion) {
+        if let command = currentSlashCommands.first(where: { $0.id == suggestion.target }) {
+            applySlashCommand(command)
+        } else {
+            acceptLinkCompletion(suggestion)
+        }
+    }
+
+    /// Runs a `/` command in place of the `/` being typed.
+    public func applySlashCommand(_ command: SlashCommand) {
+        guard let context = slashContext else { return }
+        perform(MarkdownEditing.apply(command, in: context, text: text))
+        updateSuggestions()
     }
 
     /// Inserts a suggestion for the wiki link being typed.
@@ -207,9 +239,10 @@ public final class AtlasTextView: UITextView, UITextViewDelegate {
         super.touchesBegan(touches, with: event)
     }
 }
-/// The wiki-link suggestions above the keyboard: a row of buttons, one per page.
+/// The suggestions above the keyboard: a row of buttons, one per page, or per `/` command.
 final class LinkSuggestionBar: UIInputView {
     var completions: [LinkCompletion] = [] { didSet { if completions != oldValue { rebuild() } } }
+    var isCommands = false
     private let accept: (LinkCompletion) -> Void
     private let stack = UIStackView()
 
@@ -246,7 +279,7 @@ final class LinkSuggestionBar: UIInputView {
             config.subtitle = completion.detail
             config.cornerStyle = .capsule
             let button = UIButton(configuration: config, primaryAction: UIAction { [weak self] _ in self?.accept(completion) })
-            button.accessibilityLabel = "Link to \(completion.title)"
+            button.accessibilityLabel = isCommands ? completion.title : "Link to \(completion.title)"
             stack.addArrangedSubview(button)
         }
     }
