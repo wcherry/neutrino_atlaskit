@@ -236,9 +236,9 @@ public final class DriveVaultRemote: VaultRemote {
 
 // MARK: - HTTP
 
-/// The few requests the adapter makes. Statuses map onto `VaultRemoteError` where sync cares
+/// The few requests the adapter (and `NeutrinoNotes`) makes. Statuses map onto `VaultRemoteError` where sync cares
 /// (409 is a lost race, 404 a file gone elsewhere); a 401 retries once with a fresh token.
-private struct HTTP {
+struct HTTP {
     let baseURL: URL
     let tokens: AccessTokenSource
     let session: URLSession
@@ -286,9 +286,9 @@ private struct HTTP {
     }
 }
 
-private struct ErrorEnvelope: Decodable { struct Body: Decodable { let code: String? }; let error: Body }
-private struct FolderDTO: Decodable { let id: String; let name: String }
-private struct FileDTO: Decodable { let id: String; let name: String; let contentVersion: Int; let encryptedMetadata: String? }
-private struct FolderContentsDTO: Decodable { let folders: [FolderDTO]; let files: [FileDTO] }
-private struct FileInfoDTO: Decodable { let name: String; let contentVersion: Int; let encryptedMetadata: String? }
-private struct FileKeyDTO: Decodable { let encryptedFileKey: String; let keyVersion: Int }
+struct ErrorEnvelope: Decodable { struct Body: Decodable { let code: String? }; let error: Body }
+struct FolderDTO: Decodable { let id: String; let name: String }
+struct FileDTO: Decodable { let id: String; let name: String; let contentVersion: Int; let encryptedMetadata: String?; var mimeType: String? }
+struct FolderContentsDTO: Decodable { let folders: [FolderDTO]; let files: [FileDTO] }
+struct FileInfoDTO: Decodable { let name: String; let contentVersion: Int; let encryptedMetadata: String? }
+struct FileKeyDTO: Decodable { let encryptedFileKey: String; let keyVersion: Int }

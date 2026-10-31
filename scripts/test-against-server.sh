@@ -20,7 +20,7 @@ url="http://localhost:$port"
 
 PORT="$port" JWT_SECRET="$(openssl rand -hex 32)" WORKER_SECRET="$(openssl rand -hex 32)" \
   DATABASE_URL="$work/neutrino.db" STORAGE_PATH="$work/storage" MAIL_TRANSPORT=outbox DRIVE_URL="$url" \
-  "$neutrino/target/debug/neutrino" > "$work/server.log" 2>&1 &
+  "${CARGO_TARGET_DIR:-$neutrino/target}/debug/neutrino" > "$work/server.log" 2>&1 &
 pid=$!
 trap 'kill $pid 2>/dev/null || true; wait $pid 2>/dev/null || true; rm -rf "$work"' EXIT
 
