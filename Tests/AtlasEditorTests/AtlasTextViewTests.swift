@@ -106,6 +106,19 @@ final class AtlasTextViewTests: XCTestCase {
         XCTAssertEqual(changes.last, "- [ ] a\n  - [x] b")
     }
 
+    func testMovingLinesKeepsTheCursorAndReportsTheChange() {
+        var changes: [String] = []
+        let view = make("- a\n- b\n  - b1")
+        view.onTextChange = { changes.append($0) }
+        select(view, NSRange(location: 6, length: 0))
+        view.moveLinesUp(nil)
+        XCTAssertEqual(content(view), "- b\n  - b1\n- a")
+        XCTAssertEqual(selected(view), NSRange(location: 2, length: 0))
+        view.moveLinesDown(nil)
+        XCTAssertEqual(content(view), "- a\n- b\n  - b1")
+        XCTAssertEqual(changes.last, "- a\n- b\n  - b1")
+    }
+
     private func type(_ view: AtlasTextView, _ text: String) {
         #if canImport(AppKit) && !targetEnvironment(macCatalyst)
         view.insertText(text, replacementRange: view.selectedRange())

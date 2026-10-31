@@ -321,6 +321,9 @@ them through the text system so they're undoable:
   ends the list.
 - **Tab** and **Shift-Tab** indent and outdent list items: under the sibling above, and back to
   the parent's level.
+- **⌥⌘↑** and **⌥⌘↓** move the selected lines past the block above or below. Both sides grow to
+  whole blocks: a list item carries its nested items and passes a sibling with all of its own,
+  and code and math blocks move whole. The frontmatter stays first.
 - Clicking or tapping a checkbox, or **⌘↩**, ticks a task by changing the one character
   between the brackets (SPEC §8.2).
 - **⌘B**, **⌘I** and **⌘E** wrap or unwrap the selection in `**`, `_` or a backtick.

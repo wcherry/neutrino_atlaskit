@@ -285,11 +285,29 @@ public final class AtlasTextView: NSTextView {
         }
     }
 
+    /// Moves the selected lines, or the block they're in, up or down past the next block.
+    @objc public func moveLinesUp(_ sender: Any?) { move(.up) }
+    @objc public func moveLinesDown(_ sender: Any?) { move(.down) }
+
+    private func move(_ direction: MoveDirection) {
+        if let edit = MarkdownEditing.moveLines(direction, in: string, selection: selection, syntax: syntax) {
+            perform(edit, actionName: direction == .up ? "Move Up" : "Move Down")
+            scrollRangeToVisible(selectedRange())
+        }
+    }
+
     private func wrap(_ marker: String, _ name: String) {
         perform(MarkdownEditing.toggleWrap(marker, in: string, selection: selection), actionName: name)
     }
 
     override public func performKeyEquivalent(with event: NSEvent) -> Bool {
+        if window?.firstResponder === self, event.modifierFlags.intersection([.shift, .command, .option, .control]) == [.command, .option] {
+            switch event.specialKey {
+            case .upArrow?: moveLinesUp(nil); return true
+            case .downArrow?: moveLinesDown(nil); return true
+            default: break
+            }
+        }
         guard window?.firstResponder === self, event.modifierFlags.intersection(.deviceIndependentFlagsMask) == .command else {
             return super.performKeyEquivalent(with: event)
         }

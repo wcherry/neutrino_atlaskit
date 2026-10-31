@@ -212,11 +212,24 @@ public final class AtlasTextView: UITextView, UITextViewDelegate {
             UIKeyCommand(title: "Italic", action: #selector(toggleEmphasis(_:)), input: "i", modifierFlags: .command),
             UIKeyCommand(title: "Code", action: #selector(toggleInlineCode(_:)), input: "e", modifierFlags: .command),
             UIKeyCommand(title: "Toggle Task", action: #selector(toggleTask(_:)), input: "\r", modifierFlags: .command),
+            UIKeyCommand(title: "Move Up", action: #selector(moveLinesUp(_:)), input: UIKeyCommand.inputUpArrow, modifierFlags: [.command, .alternate]),
+            UIKeyCommand(title: "Move Down", action: #selector(moveLinesDown(_:)), input: UIKeyCommand.inputDownArrow, modifierFlags: [.command, .alternate]),
         ]
     }
 
     @objc public func outdent(_ sender: Any?) {
         if let edit = MarkdownEditing.outdent(in: text, selection: selection, syntax: syntax) { perform(edit) }
+    }
+
+    /// Moves the selected lines, or the block they're in, up or down past the next block.
+    @objc public func moveLinesUp(_ sender: Any?) { move(.up) }
+    @objc public func moveLinesDown(_ sender: Any?) { move(.down) }
+
+    private func move(_ direction: MoveDirection) {
+        if let edit = MarkdownEditing.moveLines(direction, in: text, selection: selection, syntax: syntax) {
+            perform(edit)
+            scrollRangeToVisible(selectedRange)
+        }
     }
 
     @objc public func toggleStrong(_ sender: Any?) { perform(MarkdownEditing.toggleWrap("**", in: text, selection: selection)) }
