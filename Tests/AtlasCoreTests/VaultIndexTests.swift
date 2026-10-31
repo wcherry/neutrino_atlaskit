@@ -169,6 +169,18 @@ final class VaultIndexTests: XCTestCase {
         XCTAssertEqual(VaultIndex.matchingHeadings(twice, "goals").map(\.text), ["Goals", "Goals!"], "a heading a link can't tell apart is offered once")
     }
 
+    func testFuzzyMatchingRanksAnyList() {
+        let commands = [("New Page", ["create"]), ("Sync Now", []), ("Add Page to Favourites", ["star", "bookmark"]), ("Today's Note", ["daily"])]
+        func titles(_ q: String) -> [String] { VaultIndex.fuzzyMatching(commands, q) { [$0.0] + $0.1 }.map(\.0) }
+        XCTAssertEqual(titles(""), commands.map(\.0))
+        XCTAssertEqual(titles("sync"), ["Sync Now"])
+        XCTAssertEqual(titles("star"), ["Add Page to Favourites"], "by a keyword")
+        XCTAssertEqual(titles("page"), ["New Page", "Add Page to Favourites"], "the shorter title first")
+        XCTAssertEqual(titles("TODAY"), ["Today's Note"])
+        XCTAssertEqual(titles("np"), ["New Page"])
+        XCTAssertEqual(titles("zzz"), [])
+    }
+
     // MARK: Snapshots
 
     func testSealedSnapshotRoundTrip() throws {
