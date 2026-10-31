@@ -208,6 +208,18 @@ public final class AtlasTextView: NSTextView {
         return true
     }
 
+    /// A copied link (a URL, with its title as HTML) pastes as `[Title](url)`; anything else
+    /// pastes as plain text.
+    override public func paste(_ sender: Any?) {
+        let board = NSPasteboard.general
+        if let plain = board.string(forType: .string),
+           let edit = MarkdownEditing.pasteLink(plain: plain, html: board.string(forType: .html), in: string, selection: selection, syntax: syntax) {
+            perform(edit, actionName: "Paste")
+            return
+        }
+        super.paste(sender)
+    }
+
     /// Follows the link at a character, if a click there should (see `shouldOpenLink`).
     @discardableResult
     public func openLink(at index: Int, commandKey: Bool) -> Bool {

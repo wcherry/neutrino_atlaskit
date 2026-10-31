@@ -329,6 +329,10 @@ them through the text system so they're undoable:
   heading whose link text matches, ignoring case; or the list item or line carrying `^id`), puts
   the cursor there and scrolls it to the top.
 
+- **Pasting a copied link** gives `[Title](url)`. That happens when the clipboard holds one
+  http(s) URL as text, and as HTML just one link to it with a title, which is what Neutrino
+  Notes' and browsers' "Copy link" write (`MarkdownEditing.pastedLink`). The title is escaped
+  so it shows as written. Anything else, and anything pasted into code, pastes as plain text.
 - **Typing `/`** at a line's start or after a space opens the `/` menu, from `slashCommands`
   (`SlashCommand.builtIn()` by default; the app adds its templates). The text after the `/`
   narrows it by title, title word or keyword. A command replaces the `/` and its text.

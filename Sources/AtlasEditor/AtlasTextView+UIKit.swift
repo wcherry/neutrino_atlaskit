@@ -181,6 +181,20 @@ public final class AtlasTextView: UITextView, UITextViewDelegate {
         selectedRange = NSRange(location: edit.selection.lowerBound, length: edit.selection.count)
     }
 
+    /// A copied link (a URL, with its title as HTML) pastes as `[Title](url)`; anything else
+    /// pastes as plain text.
+    override public func paste(_ sender: Any?) {
+        let board = UIPasteboard.general
+        let html = (board.value(forPasteboardType: "public.html") as? String)
+            ?? board.data(forPasteboardType: "public.html").flatMap { String(data: $0, encoding: .utf8) }
+        if let plain = board.string,
+           let edit = MarkdownEditing.pasteLink(plain: plain, html: html, in: text, selection: selection, syntax: syntax) {
+            perform(edit)
+            return
+        }
+        super.paste(sender)
+    }
+
     override public func insertText(_ text: String) {
         if text == "\n", let edit = MarkdownEditing.newline(in: self.text, selection: selection, syntax: syntax) {
             perform(edit)
