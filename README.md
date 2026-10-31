@@ -225,6 +225,12 @@ Two devices that create the same day's note before syncing end up with one page,
 adopts a file both sides created with the same content. That's why the default template is
 empty, and why a template shouldn't use what differs between devices, such as `{{time}}`.
 
+Page templates are pages in a templates folder (`Templates` by default, as in Obsidian), so
+they sync and are encrypted like any page. `VaultWorkspace.templates(in:)` lists them by title,
+along with the built-in `Template.builtIn` (a Meeting template) that a page of the same name
+replaces. `createPage(from:titled:in:)` renders one into a new page, and `{{title}}` is the
+title the page actually gets, numbered if the one asked for was taken.
+
 ### Import and export
 
 `FolderSnapshot.read(folder)` reads a folder of Markdown and attachments, such as an Obsidian

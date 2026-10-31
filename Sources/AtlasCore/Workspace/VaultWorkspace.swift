@@ -85,12 +85,19 @@ public final class VaultWorkspace {
     /// A new, empty page titled `title` in `folder`, numbered if the title is taken. Returns its path.
     @discardableResult
     public func createPage(titled title: String = "Untitled", in folder: String = "", text: String = "") throws -> String {
+        let path = freePagePath(titled: title, in: folder)
+        try write(text: text, at: path)
+        return path
+    }
+
+    /// Where a new page titled `title` goes in `folder`: numbered if the title is taken, with a
+    /// `/` in it made a `-`.
+    func freePagePath(titled title: String, in folder: String) -> String {
         let clean = title.replacingOccurrences(of: "/", with: "-").trimmingCharacters(in: .whitespaces)
         let base = clean.isEmpty ? "Untitled" : clean
         var path = Self.join(folder, base + ".md")
         var n = 2
         while contains(path) { path = Self.join(folder, "\(base) \(n).md"); n += 1 }
-        try write(text: text, at: path)
         return path
     }
 
