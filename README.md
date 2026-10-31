@@ -333,10 +333,18 @@ them through the text system so they're undoable:
   http(s) URL as text, and as HTML just one link to it with a title, which is what Neutrino
   Notes' and browsers' "Copy link" write (`MarkdownEditing.pastedLink`). The title is escaped
   so it shows as written. Anything else, and anything pasted into code, pastes as plain text.
+- **Typing `/`** at a line's start or after a space opens the `/` menu, from `slashCommands`
+  (`SlashCommand.builtIn()` by default; the app adds its templates). The text after the `/`
+  narrows it by title, title word or keyword. A command replaces the `/` and its text.
+  - **Line commands** (headings, lists, task, quote) change the line's marker and keep its text.
+  - **Insert commands** (code, math, table, divider, callout, link, date, time) insert text.
+    Blocks go on a line of their own, after a blank line if the line before has text: a
+    `---` right under a paragraph would make it a heading.
+  - Not in code, math or frontmatter, and not inside a word: `and/or` and `1/2` are text.
 
 Smart quotes, dashes and other substitutions are off: they would change the Markdown.
 
-Not yet: the `/` menu, rendered images, embeds and
+Not yet: rendered images, embeds and
 checkboxes, and syntax highlighting inside code blocks.
 
 ## Building and testing

@@ -9,19 +9,22 @@ public struct AtlasEditorView {
     var onOpenLink: ((LinkTarget) -> Void)?
     var linkCompletions: ((LinkCompletionContext) -> [LinkCompletion])?
     var anchor: EditorAnchor?
+    var slashCommands: (() -> [SlashCommand])?
 
     /// `onOpenLink` is called when a link is clicked or tapped; `linkCompletions` suggests pages,
     /// and then headings, while a `[[wiki link]]` is typed. A new `anchor` is shown once, when
-    /// it's set: set it with the text of the page it's on.
+    /// it's set: set it with the text of the page it's on. `slashCommands` is the `/` menu,
+    /// `SlashCommand.builtIn()` when nil.
     public init(text: Binding<String>, mode: EditorMode = .livePreview, theme: EditorTheme = EditorTheme(),
                 onOpenLink: ((LinkTarget) -> Void)? = nil, linkCompletions: ((LinkCompletionContext) -> [LinkCompletion])? = nil,
-                anchor: EditorAnchor? = nil) {
+                anchor: EditorAnchor? = nil, slashCommands: (() -> [SlashCommand])? = nil) {
         _text = text
         self.mode = mode
         self.theme = theme
         self.onOpenLink = onOpenLink
         self.linkCompletions = linkCompletions
         self.anchor = anchor
+        self.slashCommands = slashCommands
     }
 
     public final class Coordinator {
@@ -37,6 +40,7 @@ public struct AtlasEditorView {
         coordinator.text = $text
         view.onOpenLink = onOpenLink
         view.linkCompletions = linkCompletions
+        view.slashCommands = slashCommands ?? { SlashCommand.builtIn() }
         if view.mode != mode { view.mode = mode }
         if view.theme.fontSize != theme.fontSize { view.theme = theme }
     }
