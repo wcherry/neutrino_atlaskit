@@ -271,6 +271,18 @@ extension VaultIndex {
         return Array(scored.sorted { $0.2 != $1.2 ? $0.2 > $1.2 : $0.0 < $1.0 }.map(\.1).prefix(limit))
     }
 
+    /// `items` ranked by how well `query` matches the best of their `keys`, the way the quick
+    /// switcher ranks titles; items it doesn't match are left out, and ties keep the given order.
+    /// All of them, in order, for an empty query. For lists that aren't pages, such as commands.
+    public static func fuzzyMatching<Item>(_ items: [Item], _ query: String, keys: (Item) -> [String]) -> [Item] {
+        let q = AtlasMarkdown.matchKey(query.trimmingCharacters(in: .whitespaces))
+        guard !q.isEmpty else { return items }
+        let scored = items.enumerated().compactMap { i, item in
+            keys(item).compactMap { fuzzyScore(q, AtlasMarkdown.matchKey($0)) }.max().map { (i, item, $0) }
+        }
+        return scored.sorted { $0.2 != $1.2 ? $0.2 > $1.2 : $0.0 < $1.0 }.map(\.1)
+    }
+
     /// A match score, or nil if `query` isn't a subsequence of `candidate`. Both already folded.
     static func fuzzyScore(_ query: String, _ candidate: String) -> Int? {
         if candidate == query { return 10_000 }
