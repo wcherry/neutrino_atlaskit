@@ -201,6 +201,27 @@ final class EditorStyling {
     }
 }
 
+extension AtlasTextView {
+    /// An image's bytes from the app, decoded, logging why when there's nothing to show.
+    static func decode(_ source: ImageSource, _ imageData: (ImageSource) -> Data?) -> CGImage? {
+        let name: String
+        switch source {
+        case .embed(let ref): name = "![[\(ref.target)]]"
+        case .path(let path): name = "![](\(path))"
+        }
+        guard let data = imageData(source) else {
+            AtlasLog.images.notice("\(name): no such image in the vault")
+            return nil
+        }
+        guard let image = ShownImage.decode(data) else {
+            AtlasLog.images.error("\(name): \(data.count) bytes that aren't an image this device can decode (\(ImageImport.fileExtension(of: data) ?? "unknown type"))")
+            return nil
+        }
+        AtlasLog.images.info("\(name): \(image.width)×\(image.height) px")
+        return image
+    }
+}
+
 /// Gives a paragraph shown as an image (`.atlasImage`) a layout fragment that draws it.
 final class ImageFragments: NSObject, NSTextLayoutManagerDelegate {
     var padding: CGFloat = 6

@@ -162,14 +162,23 @@ public final class VaultWorkspace {
         guard !isSyncing else { return nil }
         isSyncing = true
         var report = SyncReport()
+        let started = Date()
         do {
             report = try await engine.sync()
         } catch {
+            AtlasLog.sync.error("Sync failed: \(String(describing: error))")
             try finishPass(report)
             throw error
         }
         try finishPass(report)
         lastSync = Date()
+        let summary = [("uploaded", report.uploaded), ("updated", report.updated), ("merged", report.merged),
+                       ("removed", report.removed), ("deleted elsewhere", report.deletedRemotely), ("restored", report.restored)]
+            .filter { !$0.1.isEmpty }
+            .map { "\($0.0) \($0.1.joined(separator: ", "))" }
+            + report.moved.map { "moved \($0.from) → \($0.to)" }
+            + report.conflicts.map { "conflict \($0.path), kept \($0.copy)" }
+        AtlasLog.sync.info("Synced in \(Int(Date().timeIntervalSince(started) * 1000)) ms: \(summary.isEmpty ? "nothing to do" : summary.joined(separator: "; "))")
         return report
     }
 

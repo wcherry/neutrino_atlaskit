@@ -315,6 +315,12 @@ typed. Everything the reader sees is attributes:
 - After a keystroke the page is mapped again (well under a millisecond for a usual page). After
   a selection change, only the blocks the cursor left or entered are restyled.
 
+**Logging.** `AtlasLog` (in AtlasCore) has a channel per area (`app`, `sync`, `drive`,
+`editor`, `images`). Each entry goes to Apple's unified log (subsystem `com.neutrino.atlas`,
+visible in Console) and to an in-memory buffer of the run's last 5,000 entries, which the apps
+show (the Mac app's Help › Show Logs); the unified log takes seconds to read back. Log paths,
+ids, counts, sizes, statuses and errors, never page content.
+
 Commands are pure functions in `MarkdownEditing`, returning a `TextEdit`, and both views run
 them through the text system so they're undoable:
 - **Return** continues a list item, task or quote. On an empty item it removes the marker, which

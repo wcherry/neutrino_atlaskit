@@ -272,8 +272,19 @@ struct HTTP {
             request.setValue(multipart.contentType, forHTTPHeaderField: "Content-Type")
             request.httpBody = multipart.finalized()
         }
-        let (data, response) = try await session.data(for: request)
+        let data: Data, response: URLResponse
+        do {
+            (data, response) = try await session.data(for: request)
+        } catch {
+            AtlasLog.drive.error("\(method) \(path): \(error.localizedDescription)")
+            throw error
+        }
         let status = (response as? HTTPURLResponse)?.statusCode ?? 0
+        if (200..<300).contains(status) {
+            AtlasLog.drive.info("\(method) \(path) → \(status) (\(data.count) bytes)")
+        } else {
+            AtlasLog.drive.error("\(method) \(path) → \(status)\(retried ? " (retried)" : "")")
+        }
         switch status {
         case 200..<300: return data
         case 401 where !retried: return try await send(method, path, query: query, body: body, multipart: multipart, retried: true)

@@ -101,7 +101,7 @@ public final class AtlasTextView: UITextView, UITextViewDelegate {
         guard let imageData else { return nil }
         let available = textContainer.size.width - 2 * textContainer.lineFragmentPadding
         guard available > 0 else { return nil }
-        if decodedImages[found.source] == nil { decodedImages[found.source] = imageData(found.source).flatMap(ShownImage.decode) }
+        if decodedImages[found.source] == nil { decodedImages[found.source] = Self.decode(found.source, imageData) }
         guard let image = decodedImages[found.source] ?? nil else { return nil }
         let size = ShownImage.size(of: image, width: found.width, available: available)
         return size.width > 0 ? ShownImage(image: image, size: size) : nil
@@ -227,7 +227,9 @@ public final class AtlasTextView: UITextView, UITextViewDelegate {
     /// of its own, which Live Preview shows as the image.
     public func insertImages(_ images: [ImageImport]) {
         guard let importImages, !images.isEmpty else { return }
-        if let edit = MarkdownEditing.insertEmbeds(importImages(images), in: text, selection: selection) { perform(edit) }
+        let targets = importImages(images)
+        AtlasLog.images.info("Inserting \(images.count) image(s): \(targets.map { "![[\($0)]]" }.joined(separator: ", "))")
+        if let edit = MarkdownEditing.insertEmbeds(targets, in: text, selection: selection) { perform(edit) }
     }
 
     /// The images on the pasteboard, one per item, as their bytes were copied.
@@ -255,6 +257,7 @@ public final class AtlasTextView: UITextView, UITextViewDelegate {
         // An image with no text: a copied photo or screenshot.
         if importImages != nil, board.hasImages, !board.hasStrings {
             let images = Self.images(on: board)
+            AtlasLog.editor.info("Paste: types [\(board.types.joined(separator: ", "))] → \(images.count) image(s)")
             if !images.isEmpty {
                 insertImages(images)
                 return

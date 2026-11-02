@@ -105,7 +105,7 @@ public final class AtlasTextView: NSTextView {
         guard let imageData, let container = textContainer else { return nil }
         let available = container.size.width - 2 * container.lineFragmentPadding
         guard available > 0 else { return nil }
-        if decodedImages[found.source] == nil { decodedImages[found.source] = imageData(found.source).flatMap(ShownImage.decode) }
+        if decodedImages[found.source] == nil { decodedImages[found.source] = Self.decode(found.source, imageData) }
         guard let image = decodedImages[found.source] ?? nil else { return nil }
         let size = ShownImage.size(of: image, width: found.width, available: available)
         return size.width > 0 ? ShownImage(image: image, size: size) : nil
@@ -256,6 +256,7 @@ public final class AtlasTextView: NSTextView {
         // Image files (a Finder copy), or an image with no text (a screenshot).
         if importImages != nil {
             let images = Self.images(on: board, preferText: true)
+            AtlasLog.editor.info("Paste: \(Self.describe(board)) → \(images.isEmpty ? "as text" : "\(images.count) image(s)")")
             if !images.isEmpty {
                 insertImages(images)
                 return
@@ -277,8 +278,12 @@ public final class AtlasTextView: NSTextView {
     /// Adds images at the selection: `importImages` saves them, and each is embedded on a line
     /// of its own, which Live Preview shows as the image. One undoable edit.
     public func insertImages(_ images: [ImageImport]) {
-        guard let importImages, !images.isEmpty else { return }
+        guard let importImages, !images.isEmpty else {
+            AtlasLog.images.notice("Insert of \(images.count) image(s) ignored: \(self.importImages == nil ? "the app takes no images" : "none")")
+            return
+        }
         let targets = importImages(images)
+        AtlasLog.images.info("Inserting \(images.count) image(s) at \(self.selection.lowerBound): \(targets.map { "![[\($0)]]" }.joined(separator: ", "))")
         if let edit = MarkdownEditing.insertEmbeds(targets, in: string, selection: selection) {
             perform(edit, actionName: targets.count == 1 ? "Insert Image" : "Insert Images")
         }
@@ -301,6 +306,13 @@ public final class AtlasTextView: NSTextView {
         return []
     }
 
+    /// A pasteboard's types and file names, for the log.
+    static func describe(_ board: NSPasteboard) -> String {
+        let types = board.types?.map(\.rawValue).joined(separator: ", ") ?? "none"
+        let urls = (board.readObjects(forClasses: [NSURL.self], options: [.urlReadingFileURLsOnly: true]) as? [URL]) ?? []
+        return "types [\(types)]" + (urls.isEmpty ? "" : ", files [\(urls.map(\.lastPathComponent).joined(separator: ", "))]")
+    }
+
     /// Whether a drag carries images, judged without reading files: called as it moves.
     private static func carriesImages(_ board: NSPasteboard) -> Bool {
         if let urls = board.readObjects(forClasses: [NSURL.self], options: [.urlReadingFileURLsOnly: true]) as? [URL], !urls.isEmpty {
@@ -316,8 +328,13 @@ public final class AtlasTextView: NSTextView {
 
     /// Images dropped on the page go in where they're dropped.
     override public func performDragOperation(_ sender: NSDraggingInfo) -> Bool {
-        guard importImages != nil, Self.carriesImages(sender.draggingPasteboard) else { return super.performDragOperation(sender) }
-        let images = Self.images(on: sender.draggingPasteboard, preferText: false)
+        let board = sender.draggingPasteboard
+        guard importImages != nil, Self.carriesImages(board) else {
+            AtlasLog.editor.info("Drop: \(Self.describe(board)) → as text")
+            return super.performDragOperation(sender)
+        }
+        let images = Self.images(on: board, preferText: false)
+        AtlasLog.editor.info("Drop: \(Self.describe(board)) → \(images.count) image(s)")
         guard !images.isEmpty else { return false }
         let at = characterIndexForInsertion(at: convert(sender.draggingLocation, from: nil))
         window?.makeFirstResponder(self)
