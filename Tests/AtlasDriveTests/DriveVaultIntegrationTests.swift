@@ -189,6 +189,46 @@ final class DriveVaultIntegrationTests: XCTestCase {
         XCTAssertTrue(report.unresolvedLinks.isEmpty)
     }
 
+    // MARK: Images from Drive
+
+    func testDriveImagesAreBrowsedAndRead() async throws {
+        let account = try await newAccount()
+        let userID = account.keyring.userId
+        let png = Data([0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A, 7, 7, 7])
+        // The vault, which the browser leaves out; a folder with an encrypted image and a page;
+        // an image at the root that was never encrypted.
+        let vault = try await DriveVaultRemote.createVault(named: "Atlas", baseURL: server, tokens: account.token)
+        _ = try await remote(account, vault: vault).create(at: "in-vault.png", data: png)
+        let trips = try await DriveVaultRemote.createVault(named: "Trips", baseURL: server, tokens: account.token)
+        _ = try await remote(account, vault: trips).create(at: "beach.png", data: png)
+        _ = try await remote(account, vault: trips).create(at: "Notes.md", data: Data("# Notes\n".utf8))
+        var form = MultipartFormBody()
+        form.appendFile(name: "file", fileName: "plain.png", mimeType: "image/png", data: png)
+        var request = URLRequest(url: server.appendingPathComponent("/api/v1/drive/files/upload"))
+        request.httpMethod = "POST"
+        request.setValue("Bearer \(account.token.value)", forHTTPHeaderField: "Authorization")
+        request.setValue(form.contentType, forHTTPHeaderField: "Content-Type")
+        request.httpBody = form.finalized()
+        _ = try await URLSession.shared.data(for: request)
+
+        let browser = DriveBrowser(baseURL: server, keys: account.keyring, tokens: account.token)
+        let root = try await browser.images(in: userID, excluding: [vault])
+        // A new account's Drive has folders of its own; these are the ones the test made.
+        XCTAssertFalse(root.contains { $0.id == vault }, "the vault is left out")
+        XCTAssertEqual(root.filter { !$0.isFolder }.map(\.name), ["plain.png"])
+        XCTAssertEqual(root.map(\.isFolder), root.map(\.isFolder).sorted { $0 && !$1 }, "folders first")
+        let tripsFolder = try XCTUnwrap(root.first { $0.name == "Trips" && $0.isFolder })
+        let plainImage = try XCTUnwrap(root.first { $0.name == "plain.png" })
+        let inTrips = try await browser.images(in: tripsFolder.id)
+        XCTAssertEqual(inTrips.map(\.name), ["beach.png"], "images only")
+        guard inTrips.count == 1 else { return XCTFail("\(inTrips)") }
+
+        let beach = try await browser.read(inTrips[0])
+        XCTAssertEqual(beach, png, "decrypted")
+        let plain = try await browser.read(plainImage)
+        XCTAssertEqual(plain, png, "never encrypted")
+    }
+
     func testKeyRotationKeepsOldFilesReadable() async throws {
         var account = try await newAccount()
         let vault = try await DriveVaultRemote.createVault(named: "Rotation", baseURL: server, tokens: account.token)

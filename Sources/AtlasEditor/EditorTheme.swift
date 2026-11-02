@@ -107,6 +107,16 @@ final class ShownImage: NSObject {
         return CGImageSourceCreateImageAtIndex(source, 0, nil)
     }
 
+    /// `data` re-encoded as PNG: for TIFF, which the Mac's pasteboard uses for images and
+    /// which isn't a format to keep in a vault.
+    static func png(from data: Data) -> Data? {
+        guard let image = decode(data) else { return nil }
+        let out = NSMutableData()
+        guard let destination = CGImageDestinationCreateWithData(out, "public.png" as CFString, 1, nil) else { return nil }
+        CGImageDestinationAddImage(destination, image, nil)
+        return CGImageDestinationFinalize(destination) ? out as Data : nil
+    }
+
     /// The size to draw `image` at: its pixel size (or the width asked for), no wider than `available`.
     static func size(of image: CGImage, width asked: Int?, available: CGFloat) -> CGSize {
         let natural = CGSize(width: image.width, height: image.height)

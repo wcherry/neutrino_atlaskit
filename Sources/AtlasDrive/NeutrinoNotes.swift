@@ -63,18 +63,9 @@ public struct NeutrinoNotes {
 
     /// A note's body, decrypted.
     public func read(_ note: Note) async throws -> Data {
-        let stored = try await http.data("GET", "/api/v1/drive/files/\(note.id)")
-        guard !stored.isEmpty else { return stored }
-        let dek: [UInt8]
-        do {
-            let key: FileKeyDTO = try await http.json("GET", "/api/v1/drive/files/\(note.id)/key")
-            let pair = try keys.keyPair(forVersion: key.keyVersion)
-            dek = try DriveFileCrypto.openDEK(key.encryptedFileKey, publicKey: pair.publicKey, secretKey: pair.secretKey)
-        } catch VaultRemoteError.notFound {
-            return stored  // never encrypted
-        }
-        let info: FileInfoDTO? = try? await http.json("GET", "/api/v1/drive/files/\(note.id)/info")
-        let chunkSize = info?.encryptedMetadata.flatMap { try? DriveFileCrypto.decryptMetadata($0, dek: dek).chunkSize } ?? nil
+        let content = try await http.driveContent(of: note.id, keys: keys)
+        guard let dek = content.dek else { return content.stored }  // never encrypted
+        let (stored, chunkSize) = (content.stored, content.chunkSize)
         if let text = String(data: stored, encoding: .utf8), let sealed = Data(base64URLEncoded: text.trimmingCharacters(in: .whitespacesAndNewlines)),
            let body = try? DriveFileCrypto.decrypt(sealed, dek: dek, chunkSize: chunkSize) {
             return body

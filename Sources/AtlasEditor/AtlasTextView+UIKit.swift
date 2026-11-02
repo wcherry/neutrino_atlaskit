@@ -47,6 +47,10 @@ public final class AtlasTextView: UITextView, UITextViewDelegate {
     private let imageFragments = ImageFragments()
     private var styledWidth: CGFloat = 0
 
+    /// Saves images pasted, dropped or picked (`insertImages`) into the vault, and returns the
+    /// link target for each, in order. Nil leaves pasting and dropping as they were.
+    public var importImages: (([ImageImport]) -> [String])?
+
     /// Forgets the decoded images and asks `imageData` again, for when the vault's files change.
     public func reloadImages() {
         decodedImages = [:]
@@ -219,8 +223,43 @@ public final class AtlasTextView: UITextView, UITextViewDelegate {
 
     /// A copied link (a URL, with its title as HTML) pastes as `[Title](url)`; anything else
     /// pastes as plain text.
+    /// Adds images at the selection: `importImages` saves them, and each is embedded on a line
+    /// of its own, which Live Preview shows as the image.
+    public func insertImages(_ images: [ImageImport]) {
+        guard let importImages, !images.isEmpty else { return }
+        if let edit = MarkdownEditing.insertEmbeds(importImages(images), in: text, selection: selection) { perform(edit) }
+    }
+
+    /// The images on the pasteboard, one per item, as their bytes were copied.
+    static func images(on board: UIPasteboard) -> [ImageImport] {
+        var found: [ImageImport] = []
+        for item in 0..<board.numberOfItems {
+            for type in ["public.png", "public.jpeg", "public.heic", "com.compuserve.gif"] {
+                if let data = board.data(forPasteboardType: type, inItemSet: IndexSet(integer: item))?.first {
+                    found.append(ImageImport(data: data))
+                    break
+                }
+            }
+        }
+        if found.isEmpty, let data = board.image?.pngData() { found.append(ImageImport(data: data)) }
+        return found
+    }
+
+    override public func canPerformAction(_ action: Selector, withSender sender: Any?) -> Bool {
+        if action == #selector(paste(_:)), importImages != nil, UIPasteboard.general.hasImages { return true }
+        return super.canPerformAction(action, withSender: sender)
+    }
+
     override public func paste(_ sender: Any?) {
         let board = UIPasteboard.general
+        // An image with no text: a copied photo or screenshot.
+        if importImages != nil, board.hasImages, !board.hasStrings {
+            let images = Self.images(on: board)
+            if !images.isEmpty {
+                insertImages(images)
+                return
+            }
+        }
         let html = (board.value(forPasteboardType: "public.html") as? String)
             ?? board.data(forPasteboardType: "public.html").flatMap { String(data: $0, encoding: .utf8) }
         if let plain = board.string,
