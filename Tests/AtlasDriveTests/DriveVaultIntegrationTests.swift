@@ -221,6 +221,10 @@ final class DriveVaultIntegrationTests: XCTestCase {
         let plainImage = try XCTUnwrap(root.first { $0.name == "plain.png" })
         let inTrips = try await browser.images(in: tripsFolder.id)
         XCTAssertEqual(inTrips.map(\.name), ["beach.png"], "images only")
+        // For linking, every file, with the type that says what opens it.
+        let everything = try await browser.files(in: tripsFolder.id)
+        XCTAssertEqual(everything.map(\.name), ["beach.png", "Notes.md"])
+        XCTAssertEqual(everything.map(\.mimeType), ["image/png", "text/markdown"])
         guard inTrips.count == 1 else { return XCTFail("\(inTrips)") }
 
         let beach = try await browser.read(inTrips[0])

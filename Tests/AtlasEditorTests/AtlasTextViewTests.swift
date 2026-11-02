@@ -178,6 +178,28 @@ final class AtlasTextViewTests: XCTestCase {
         XCTAssertEqual(content(view), text)
     }
 
+    func testNeutrinoLinksShowAsChipsAwayFromTheCursor() {
+        let text = "See [Q4 plan](https://www.getneutrino.app/open/doc/abc) and [a site](https://example.com)."
+        let view = make(text)
+        select(view, NSRange(location: 0, length: 0))
+        view.linkChip = { $0.contains("/open/doc/") ? LinkChip(symbol: "doc.text") : nil }
+        let ns = text as NSString
+        let doc = ns.range(of: "[Q4").location, site = ns.range(of: "[a site").location
+
+        XCTAssertEqual((storage(view).attribute(.atlasChip, at: doc + 1, effectiveRange: nil) as? ChipMark)?.symbol, "doc.text")
+        XCTAssertNil(storage(view).attribute(.atlasChip, at: site + 1, effectiveRange: nil), "only the links the app names")
+        // The `[` is the symbol's slot: full size, unseen.
+        XCTAssertFalse(isHidden(view, at: doc))
+        XCTAssertEqual(storage(view).attribute(.foregroundColor, at: doc, effectiveRange: nil) as? PlatformColor, .clear)
+        XCTAssertTrue(isHidden(view, at: ns.range(of: "](https").location), "the URL stays hidden")
+        XCTAssertTrue(fragment(view, at: doc) is ChipLayoutFragment)
+
+        // At the cursor the Markdown shows, to edit; the text is never changed.
+        select(view, NSRange(location: doc + 3, length: 0))
+        XCTAssertNil(storage(view).attribute(.atlasChip, at: doc + 1, effectiveRange: nil))
+        XCTAssertEqual(content(view), text)
+    }
+
     func testInsertingImagesSavesThemAndEmbedsEachOnItsOwnLine() {
         var saved: [ImageImport] = []
         let view = make("Intro")

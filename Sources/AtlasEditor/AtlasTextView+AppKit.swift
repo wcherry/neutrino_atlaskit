@@ -47,6 +47,18 @@ public final class AtlasTextView: NSTextView {
     private let imageFragments = ImageFragments()
     private var styledWidth: CGFloat = 0
 
+    /// Puts `text` in place of the selection, undoably, with the cursor after it.
+    public func insertAtSelection(_ text: String) {
+        let end = selection.lowerBound + text.utf16.count
+        perform(TextEdit(range: selection, replacement: text, selection: end..<end), actionName: "Insert Link")
+    }
+
+    /// Which links show as chips in Live Preview: links to other Neutrino files, for the app.
+    public var linkChip: ((String) -> LinkChip?)? {
+        get { styling.linkChip }
+        set { styling.linkChip = newValue; restyle() }
+    }
+
     /// Saves images pasted, dropped or picked (`insertImages`) into the vault, and returns the
     /// link target for each, in order. Nil leaves pasting and dropping as they were.
     public var importImages: (([ImageImport]) -> [String])?

@@ -26,27 +26,39 @@ public struct DriveBrowser {
         case unreadable(name: String)
     }
 
-    /// A folder or an image in a Drive folder. Names are file names, which Drive keeps in plaintext.
+    /// A folder or a file in a Drive folder. Names are file names, which Drive keeps in plaintext.
     public struct Item: Equatable, Hashable, Sendable, Identifiable {
         public var id: String
         public var name: String
         public var isFolder: Bool
+        /// A file's type, as Drive has it: what it opens in (`NeutrinoAppLink.kind(forMIME:)`).
+        public var mimeType: String?
 
-        public init(id: String, name: String, isFolder: Bool) {
+        public init(id: String, name: String, isFolder: Bool, mimeType: String? = nil) {
             self.id = id
             self.name = name
             self.isFolder = isFolder
+            self.mimeType = mimeType
         }
     }
 
     /// The folders and images in a folder, folders first, each in Finder's order. The Drive's
     /// root folder's id is the user's id. Folders in `excluding` (the vault) are left out.
     public func images(in folderID: String, excluding: Set<String> = []) async throws -> [Item] {
+        try await contents(of: folderID, type: "photo", excluding: excluding)
+    }
+
+    /// The folders and files of every kind in a folder, the same way: for linking to them.
+    public func files(in folderID: String, excluding: Set<String> = []) async throws -> [Item] {
+        try await contents(of: folderID, type: nil, excluding: excluding)
+    }
+
+    private func contents(of folderID: String, type: String?, excluding: Set<String>) async throws -> [Item] {
         let contents: FolderContentsDTO = try await http.json("GET", "/api/v1/drive/folders/\(folderID)",
-                                                               query: [URLQueryItem(name: "type", value: "photo")])
+                                                               query: type.map { [URLQueryItem(name: "type", value: $0)] } ?? [])
         func byName(_ a: Item, _ b: Item) -> Bool { a.name.localizedStandardCompare(b.name) == .orderedAscending }
         let folders = contents.folders.filter { !excluding.contains($0.id) }.map { Item(id: $0.id, name: $0.name, isFolder: true) }
-        let files = contents.files.map { Item(id: $0.id, name: $0.name, isFolder: false) }
+        let files = contents.files.map { Item(id: $0.id, name: $0.name, isFolder: false, mimeType: $0.mimeType) }
         return folders.sorted(by: byName) + files.sorted(by: byName)
     }
 
