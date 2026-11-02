@@ -38,6 +38,21 @@ public final class AtlasTextView: NSTextView {
     public var slashCommands: (() -> [SlashCommand])? = { SlashCommand.builtIn() }
     private var offeredCommands: [SlashCommand] = []
 
+    /// The bytes of an image the page shows (`![[photo.png]]`, `![](photo.png)`), for Live
+    /// Preview to draw in place of its Markdown. Nil, or nil bytes, leave the Markdown showing.
+    public var imageData: ((ImageSource) -> Data?)? {
+        didSet { reloadImages() }
+    }
+    private var decodedImages: [ImageSource: CGImage?] = [:]
+    private let imageFragments = ImageFragments()
+    private var styledWidth: CGFloat = 0
+
+    /// Forgets the decoded images and asks `imageData` again, for when the vault's files change.
+    public func reloadImages() {
+        decodedImages = [:]
+        restyle()
+    }
+
     public convenience init() { self.init(frame: .zero) }
 
     override public convenience init(frame: NSRect) {
@@ -76,6 +91,27 @@ public final class AtlasTextView: NSTextView {
         isVerticallyResizable = true
         autoresizingMask = [.width]
         typingAttributes = styling.baseAttributes
+        imageFragments.padding = styling.theme.imagePadding
+        textLayoutManager?.delegate = imageFragments
+        styling.image = { [weak self] in self?.shownImage($0) }
+    }
+
+    private func shownImage(_ found: BlockImage) -> ShownImage? {
+        guard let imageData, let container = textContainer else { return nil }
+        let available = container.size.width - 2 * container.lineFragmentPadding
+        guard available > 0 else { return nil }
+        if decodedImages[found.source] == nil { decodedImages[found.source] = imageData(found.source).flatMap(ShownImage.decode) }
+        guard let image = decodedImages[found.source] ?? nil else { return nil }
+        let size = ShownImage.size(of: image, width: found.width, available: available)
+        return size.width > 0 ? ShownImage(image: image, size: size) : nil
+    }
+
+    /// Images are sized to the width, so a new width lays them out again.
+    override public func setFrameSize(_ newSize: NSSize) {
+        super.setFrameSize(newSize)
+        guard imageData != nil, newSize.width != styledWidth else { return }
+        styledWidth = newSize.width
+        DispatchQueue.main.async { [weak self] in self?.restyle() }
     }
 
     override public var string: String {
@@ -327,6 +363,12 @@ public final class AtlasTextView: NSTextView {
         if event.clickCount == 1, modifiers.isEmpty || modifiers == .command {
             let point = convert(event.locationInWindow, from: nil)
             let index = characterIndex(forInsertionAt: point)
+            // A click on an image shows its Markdown, to edit; it doesn't follow the embed.
+            if modifiers.isEmpty, let block = styling.imageBlocks.first(where: { $0.lowerBound <= index && index <= $0.upperBound }) {
+                window?.makeFirstResponder(self)
+                setSelectedRange(NSRange(location: block.upperBound, length: 0))
+                return
+            }
             if openLink(at: index, commandKey: modifiers == .command) { return }
         }
         if event.clickCount == 1, modifiers.isEmpty {

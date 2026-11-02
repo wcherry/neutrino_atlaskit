@@ -38,6 +38,21 @@ public final class AtlasTextView: UITextView, UITextViewDelegate {
     /// What the bar offers while a `/` command is typed.
     public private(set) var currentSlashCommands: [SlashCommand] = []
 
+    /// The bytes of an image the page shows (`![[photo.png]]`, `![](photo.png)`), for Live
+    /// Preview to draw in place of its Markdown. Nil, or nil bytes, leave the Markdown showing.
+    public var imageData: ((ImageSource) -> Data?)? {
+        didSet { reloadImages() }
+    }
+    private var decodedImages: [ImageSource: CGImage?] = [:]
+    private let imageFragments = ImageFragments()
+    private var styledWidth: CGFloat = 0
+
+    /// Forgets the decoded images and asks `imageData` again, for when the vault's files change.
+    public func reloadImages() {
+        decodedImages = [:]
+        restyle()
+    }
+
     public convenience init() { self.init(frame: .zero) }
 
     public convenience init(frame: CGRect) {
@@ -73,6 +88,27 @@ public final class AtlasTextView: UITextView, UITextViewDelegate {
         let tap = UITapGestureRecognizer(target: self, action: #selector(tapped(_:)))
         tap.cancelsTouchesInView = false
         addGestureRecognizer(tap)
+        imageFragments.padding = styling.theme.imagePadding
+        textLayoutManager?.delegate = imageFragments
+        styling.image = { [weak self] in self?.shownImage($0) }
+    }
+
+    private func shownImage(_ found: BlockImage) -> ShownImage? {
+        guard let imageData else { return nil }
+        let available = textContainer.size.width - 2 * textContainer.lineFragmentPadding
+        guard available > 0 else { return nil }
+        if decodedImages[found.source] == nil { decodedImages[found.source] = imageData(found.source).flatMap(ShownImage.decode) }
+        guard let image = decodedImages[found.source] ?? nil else { return nil }
+        let size = ShownImage.size(of: image, width: found.width, available: available)
+        return size.width > 0 ? ShownImage(image: image, size: size) : nil
+    }
+
+    /// Images are sized to the width, so a new width (rotation, split view) lays them out again.
+    override public func layoutSubviews() {
+        super.layoutSubviews()
+        guard imageData != nil, bounds.width != styledWidth else { return }
+        styledWidth = bounds.width
+        DispatchQueue.main.async { [weak self] in self?.restyle() }
     }
 
     override public var text: String! {
@@ -250,6 +286,8 @@ public final class AtlasTextView: UITextView, UITextViewDelegate {
     @objc private func tapped(_ gesture: UITapGestureRecognizer) {
         guard let position = closestPosition(to: gesture.location(in: self)) else { return }
         let offset = self.offset(from: beginningOfDocument, to: position)
+        // A tap on an image moves the cursor there, which shows its Markdown; it doesn't follow the embed.
+        if tapImageBlocks.contains(where: { $0.lowerBound <= offset && offset <= $0.upperBound }) { return }
         if let edit = MarkdownEditing.toggleTask(at: offset, in: text, syntax: syntax) {
             perform(edit)
         } else if let onOpenLink, let target = MarkdownEditing.shouldOpenLink(at: offset, in: syntax, selection: tapSelection, mode: mode, commandKey: false) {
@@ -261,8 +299,12 @@ public final class AtlasTextView: UITextView, UITextViewDelegate {
     /// where the cursor was.
     private var tapSelection = 0..<0
 
+    /// The blocks showing images before the tap: the tap reveals the one it lands on.
+    private var tapImageBlocks: [Range<Int>] = []
+
     override public func touchesBegan(_ touches: Set<UITouch>, with event: UIEvent?) {
         tapSelection = selection
+        tapImageBlocks = styling.imageBlocks
         super.touchesBegan(touches, with: event)
     }
 }
