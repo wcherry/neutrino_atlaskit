@@ -12,9 +12,15 @@ import NeutrinoCrypto
 public protocol VaultKeys: Sendable {
     func activeKeyPair() -> (publicKey: [UInt8], secretKey: [UInt8], version: Int)?
     func keyPair(forVersion version: Int) throws -> (publicKey: [UInt8], secretKey: [UInt8])
+    /// Every key pair held, for a file key filed under the wrong version (`HTTP.openFileKey`).
+    var allKeyPairs: [(version: Int, publicKey: [UInt8], secretKey: [UInt8])] { get }
 }
 
 extension Keyring: VaultKeys {
+    public var allKeyPairs: [(version: Int, publicKey: [UInt8], secretKey: [UInt8])] {
+        entries.map { ($0.version, $0.publicKey, $0.secretKey) }
+    }
+
     public func activeKeyPair() -> (publicKey: [UInt8], secretKey: [UInt8], version: Int)? {
         active.map { ($0.publicKey, $0.secretKey, $0.version) }
     }
@@ -38,6 +44,9 @@ public enum DriveVaultError: Error, Equatable {
     case http(status: Int, code: String?)
     /// A response that doesn't parse as expected.
     case badResponse(String)
+    /// A file's key opens with none of the account's keys held here: it was sealed to a key this
+    /// device doesn't have.
+    case unreadableKey(file: String, keyVersion: Int)
 }
 
 /// A vault on Neutrino Drive (SPEC-free: this is transport). The vault is a Drive folder; its
@@ -124,13 +133,20 @@ public final class DriveVaultRemote: VaultRemote {
         // new bytes with an old version, so retry until both agree.
         for _ in 0..<3 {
             let before: FileInfoDTO = try await http.json("GET", "/api/v1/drive/files/\(id)/info")
-            let dek = try await dek(for: id)
+            names[id] = before.name
+            let dek: [UInt8]
+            do { dek = try await self.dek(for: id) } catch DriveVaultError.unreadableKey { throw VaultRemoteError.unreadable }
             let ciphertext = try await http.data("GET", "/api/v1/drive/files/\(id)")
             let after: FileInfoDTO = try await http.json("GET", "/api/v1/drive/files/\(id)/info")
             guard before.contentVersion == after.contentVersion else { continue }
-            let chunkSize = try after.encryptedMetadata.map { try DriveFileCrypto.decryptMetadata($0, dek: dek).chunkSize } ?? nil
             names[id] = after.name
-            return (try DriveFileCrypto.decrypt(ciphertext, dek: dek, chunkSize: chunkSize), after.contentVersion)
+            do {
+                let chunkSize = try after.encryptedMetadata.map { try DriveFileCrypto.decryptMetadata($0, dek: dek).chunkSize } ?? nil
+                return (try DriveFileCrypto.decrypt(ciphertext, dek: dek, chunkSize: chunkSize), after.contentVersion)
+            } catch let error as DriveFileCryptoError {
+                AtlasLog.drive.error("\(after.name) (\(id)): its key opens but its content doesn't decrypt (\(String(describing: error)))")
+                throw VaultRemoteError.unreadable
+            }
         }
         throw VaultRemoteError.conflict
     }
@@ -184,9 +200,7 @@ public final class DriveVaultRemote: VaultRemote {
 
     private func dek(for id: String) async throws -> [UInt8] {
         if let cached = deks[id] { return cached }
-        let key: FileKeyDTO = try await http.json("GET", "/api/v1/drive/files/\(id)/key")
-        let pair = try keys.keyPair(forVersion: key.keyVersion)
-        let dek = try DriveFileCrypto.openDEK(key.encryptedFileKey, publicKey: pair.publicKey, secretKey: pair.secretKey)
+        let dek = try await http.openFileKey(of: id, named: names[id], keys: keys)
         deks[id] = dek
         return dek
     }
@@ -243,7 +257,7 @@ struct HTTP {
     let tokens: AccessTokenSource
     let session: URLSession
 
-    func json<T: Decodable>(_ method: String, _ path: String, query: [URLQueryItem] = [], body: [String: String]? = nil,
+    func json<T: Decodable>(_ method: String, _ path: String, query: [URLQueryItem] = [], body: [String: Any]? = nil,
                             multipart: MultipartFormBody? = nil) async throws -> T {
         let data = try await send(method, path, query: query, body: body, multipart: multipart)
         do { return try JSONDecoder().decode(T.self, from: data) }
@@ -258,7 +272,7 @@ struct HTTP {
         _ = try await send(method, path)
     }
 
-    private func send(_ method: String, _ path: String, query: [URLQueryItem] = [], body: [String: String]? = nil,
+    private func send(_ method: String, _ path: String, query: [URLQueryItem] = [], body: [String: Any]? = nil,
                       multipart: MultipartFormBody? = nil, retried: Bool = false) async throws -> Data {
         var components = URLComponents(url: baseURL.appendingPathComponent(path), resolvingAgainstBaseURL: false)!
         if !query.isEmpty { components.queryItems = query }
@@ -294,6 +308,36 @@ struct HTTP {
             let code = (try? JSONDecoder().decode(ErrorEnvelope.self, from: data))?.error.code
             throw DriveVaultError.http(status: status, code: code)
         }
+    }
+}
+
+extension HTTP {
+    /// A file's DEK, from the key Drive keeps sealed to the account. The version the key is filed
+    /// under is tried first, then every other key held, newest first: iOS apps that unlocked from
+    /// the key vault filed keys sealed to the active key as v1 on rotated accounts, which only that
+    /// version's key can't open (the web client and NeutrinoShared's `openSealedDEK` do the same).
+    /// A misfiled key is filed again under the version that opened it, so the next reader goes
+    /// straight there. Throws `DriveVaultError.unreadableKey` when nothing held opens it.
+    func openFileKey(of id: String, named name: String? = nil, keys: VaultKeys) async throws -> [UInt8] {
+        let key: FileKeyDTO = try await json("GET", "/api/v1/drive/files/\(id)/key")
+        let held = keys.allKeyPairs
+        let order = held.filter { $0.version == key.keyVersion } + held.filter { $0.version != key.keyVersion }.sorted { $0.version > $1.version }
+        for pair in order {
+            guard let dek = try? DriveFileCrypto.openDEK(key.encryptedFileKey, publicKey: pair.publicKey, secretKey: pair.secretKey) else { continue }
+            if pair.version != key.keyVersion {
+                AtlasLog.drive.notice("Key for \(name ?? id) is filed as v\(key.keyVersion) but sealed to v\(pair.version): filing it as v\(pair.version)")
+                do {
+                    let _: FileKeyDTO = try await json("PUT", "/api/v1/drive/files/\(id)/key",
+                                                       body: ["encryptedFileKey": key.encryptedFileKey, "keyVersion": pair.version])
+                } catch {
+                    // Reading goes on: the next reader just tries the keys again.
+                    AtlasLog.drive.notice("Couldn't re-file the key for \(name ?? id): \(String(describing: error))")
+                }
+            }
+            return dek
+        }
+        AtlasLog.drive.error("Key for \(name ?? id) (\(id)) opens with none of the \(held.count) key(s) held (versions \(held.map { String($0.version) }.joined(separator: ", "))); it's filed as v\(key.keyVersion)")
+        throw DriveVaultError.unreadableKey(file: name ?? id, keyVersion: key.keyVersion)
     }
 }
 

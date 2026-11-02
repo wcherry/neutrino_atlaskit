@@ -73,9 +73,7 @@ extension HTTP {
         guard !stored.isEmpty else { return (stored, nil, nil) }
         let dek: [UInt8]
         do {
-            let key: FileKeyDTO = try await json("GET", "/api/v1/drive/files/\(id)/key")
-            let pair = try keys.keyPair(forVersion: key.keyVersion)
-            dek = try DriveFileCrypto.openDEK(key.encryptedFileKey, publicKey: pair.publicKey, secretKey: pair.secretKey)
+            dek = try await openFileKey(of: id, keys: keys)
         } catch VaultRemoteError.notFound {
             return (stored, nil, nil)
         }

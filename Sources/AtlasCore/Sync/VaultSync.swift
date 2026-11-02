@@ -21,6 +21,9 @@ public enum VaultRemoteError: Error, Equatable {
     case conflict
     /// The file is gone (deleted or trashed on another device).
     case notFound
+    /// The file's content can't be decrypted here: it was sealed to a key this device doesn't
+    /// hold. Sync leaves it out of the pass, reports it, and tries again next time.
+    case unreadable
 }
 
 /// The vault on the server: a Drive folder tree whose files hold encrypted content. The Drive
@@ -69,6 +72,9 @@ public struct SyncReport: Equatable, Sendable {
     public var conflicts: [Conflict] = []
     /// Files edited here but deleted elsewhere: uploaded again rather than lost.
     public var restored: [String] = []
+    /// Files on the server this device can't decrypt (`VaultRemoteError.unreadable`), left as
+    /// they were here; the rest of the pass went ahead.
+    public var unreadable: [String] = []
 
     public init() {}
 }
@@ -207,7 +213,15 @@ public struct VaultSync {
     // MARK: - Transfers
 
     private func pull(_ file: RemoteFile, into path: String, report: inout SyncReport, isolation: isolated (any Actor)? = #isolation) async throws {
-        let (data, version) = try await remote.download(file.id)
+        let data: Data, version: Int
+        do {
+            (data, version) = try await remote.download(file.id)
+        } catch VaultRemoteError.unreadable {
+            // One file this device can't open mustn't stop the rest of the vault syncing. Its
+            // record is untouched, so the next pass tries it again.
+            report.unreadable.append(path)
+            return
+        }
         let record = SyncRecord(path: path, fileID: file.id, baseVersion: version, basePath: file.path, dirty: false)
         try vault.commit(record, content: data, base: Self.keepsBase(path) ? data : nil)
         report.updated.append(path)

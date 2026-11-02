@@ -11,6 +11,8 @@ final class FakeDrive: VaultRemote {
     private(set) var files: [String: File] = [:]
     private var nextID = 1
     var failEvery: Int?
+    /// Files whose download fails as content this device can't decrypt.
+    var unreadable: Set<String> = []
     private var calls = 0
 
     private func maybeFail() throws {
@@ -26,6 +28,7 @@ final class FakeDrive: VaultRemote {
     func download(_ id: String) async throws -> (data: Data, version: Int) {
         try maybeFail()
         guard let f = files[id] else { throw VaultRemoteError.notFound }
+        if unreadable.contains(id) { throw VaultRemoteError.unreadable }
         return (f.data, f.version)
     }
 
@@ -106,6 +109,29 @@ final class VaultSyncTests: XCTestCase {
         XCTAssertEqual(synced4, SyncReport())
         let synced5 = try await b.sync()
         XCTAssertEqual(synced5, SyncReport())
+    }
+
+    func testAFileThatCannotBeDecryptedDoesNotStopTheRest() async throws {
+        let drive = FakeDrive()
+        let a = try device(drive), b = try device(drive)
+        try a.vault.write(text: "# One\n", at: "One.md")
+        try a.vault.write(Data([0x89, 0x50]), at: "Attachments/photo.png")
+        _ = try await a.sync()
+        let photo = try XCTUnwrap(drive.files.first { $0.value.path == "Attachments/photo.png" }?.key)
+        drive.unreadable = [photo]
+
+        try b.vault.write(text: "# Mine\n", at: "Mine.md")
+        let first = try await b.sync()
+        XCTAssertEqual(first.unreadable, ["Attachments/photo.png"])
+        XCTAssertEqual(first.updated, ["One.md"])
+        XCTAssertEqual(first.uploaded, ["Mine.md"], "the rest of the pass went ahead")
+        XCTAssertNil(try b.vault.content(at: "Attachments/photo.png"))
+
+        // Once it can be read, the next pass brings it in.
+        drive.unreadable = []
+        let second = try await b.sync()
+        XCTAssertEqual(second.updated, ["Attachments/photo.png"])
+        XCTAssertEqual(second.unreadable, [])
     }
 
     func testConcurrentEditsToDifferentLinesMerge() async throws {

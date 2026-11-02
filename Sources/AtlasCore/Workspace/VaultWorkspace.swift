@@ -178,6 +178,7 @@ public final class VaultWorkspace {
             .map { "\($0.0) \($0.1.joined(separator: ", "))" }
             + report.moved.map { "moved \($0.from) → \($0.to)" }
             + report.conflicts.map { "conflict \($0.path), kept \($0.copy)" }
+            + report.unreadable.map { "couldn't decrypt \($0), left out" }
         AtlasLog.sync.info("Synced in \(Int(Date().timeIntervalSince(started) * 1000)) ms: \(summary.isEmpty ? "nothing to do" : summary.joined(separator: "; "))")
         return report
     }
