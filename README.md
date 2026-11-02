@@ -321,6 +321,12 @@ them through the text system so they're undoable:
   ends the list.
 - **Tab** and **Shift-Tab** indent and outdent list items: under the sibling above, and back to
   the parent's level.
+- **Images** on a line of their own (`![[photo.png]]`, `![[photo.png|300]]`, `![alt](photo.png)`)
+  show in Live Preview in place of their Markdown while the cursor is elsewhere; clicking one
+  shows the Markdown. The app supplies the bytes (`imageData`): the view decodes them with
+  ImageIO, keeps the hidden Markdown as the text, and makes the line as tall as the image, which
+  a TextKit 2 layout fragment draws. Images inside a sentence, and web images, stay links:
+  fetching one would tell its server which page is open.
 - **⌥⌘↑** and **⌥⌘↓** move the selected lines past the block above or below. Both sides grow to
   whole blocks: a list item carries its nested items and passes a sibling with all of its own,
   and code and math blocks move whole. The frontmatter stays first.

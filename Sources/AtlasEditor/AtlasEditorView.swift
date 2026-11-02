@@ -10,14 +10,19 @@ public struct AtlasEditorView {
     var linkCompletions: ((LinkCompletionContext) -> [LinkCompletion])?
     var anchor: EditorAnchor?
     var slashCommands: (() -> [SlashCommand])?
+    var imageData: ((ImageSource) -> Data?)?
+    var imagesVersion: Int
 
     /// `onOpenLink` is called when a link is clicked or tapped; `linkCompletions` suggests pages,
     /// and then headings, while a `[[wiki link]]` is typed. A new `anchor` is shown once, when
     /// it's set: set it with the text of the page it's on. `slashCommands` is the `/` menu,
-    /// `SlashCommand.builtIn()` when nil.
+    /// `SlashCommand.builtIn()` when nil. `imageData` gives the bytes of the images Live Preview
+    /// shows; they're decoded once, and again when `imagesVersion` changes, so change it when the
+    /// files they come from do.
     public init(text: Binding<String>, mode: EditorMode = .livePreview, theme: EditorTheme = EditorTheme(),
                 onOpenLink: ((LinkTarget) -> Void)? = nil, linkCompletions: ((LinkCompletionContext) -> [LinkCompletion])? = nil,
-                anchor: EditorAnchor? = nil, slashCommands: (() -> [SlashCommand])? = nil) {
+                anchor: EditorAnchor? = nil, slashCommands: (() -> [SlashCommand])? = nil,
+                imageData: ((ImageSource) -> Data?)? = nil, imagesVersion: Int = 0) {
         _text = text
         self.mode = mode
         self.theme = theme
@@ -25,11 +30,14 @@ public struct AtlasEditorView {
         self.linkCompletions = linkCompletions
         self.anchor = anchor
         self.slashCommands = slashCommands
+        self.imageData = imageData
+        self.imagesVersion = imagesVersion
     }
 
     public final class Coordinator {
         var text: Binding<String>
         var revealed: UUID?
+        var imagesVersion: Int?
         init(text: Binding<String>) { self.text = text }
     }
 
@@ -43,6 +51,10 @@ public struct AtlasEditorView {
         view.slashCommands = slashCommands ?? { SlashCommand.builtIn() }
         if view.mode != mode { view.mode = mode }
         if view.theme.fontSize != theme.fontSize { view.theme = theme }
+        if coordinator.imagesVersion != imagesVersion || (view.imageData == nil) != (imageData == nil) {
+            coordinator.imagesVersion = imagesVersion
+            view.imageData = imageData
+        }
     }
 
     /// Shows a new anchor, after the text is in place and laid out.

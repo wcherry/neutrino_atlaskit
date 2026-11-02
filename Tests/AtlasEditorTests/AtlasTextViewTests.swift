@@ -1,4 +1,5 @@
 import AtlasCore
+import ImageIO
 import XCTest
 @testable import AtlasEditor
 #if canImport(AppKit) && !targetEnvironment(macCatalyst)
@@ -117,6 +118,64 @@ final class AtlasTextViewTests: XCTestCase {
         view.moveLinesDown(nil)
         XCTAssertEqual(content(view), "- a\n- b\n  - b1")
         XCTAssertEqual(changes.last, "- a\n- b\n  - b1")
+    }
+
+    private func png(width: Int, height: Int) -> Data {
+        let context = CGContext(data: nil, width: width, height: height, bitsPerComponent: 8, bytesPerRow: 0,
+                                space: CGColorSpaceCreateDeviceRGB(), bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue)!
+        context.setFillColor(red: 1, green: 0.5, blue: 0, alpha: 1)
+        context.fill(CGRect(x: 0, y: 0, width: width, height: height))
+        let out = NSMutableData()
+        let destination = CGImageDestinationCreateWithData(out, "public.png" as CFString, 1, nil)!
+        CGImageDestinationAddImage(destination, context.makeImage()!, nil)
+        CGImageDestinationFinalize(destination)
+        return out as Data
+    }
+
+    private func fragment(_ view: AtlasTextView, at offset: Int) -> NSTextLayoutFragment? {
+        guard let layout = view.textLayoutManager, let content = layout.textContentManager,
+              let location = content.location(content.documentRange.location, offsetBy: offset) else { return nil }
+        layout.ensureLayout(for: layout.documentRange)
+        return layout.textLayoutFragment(for: location)
+    }
+
+    func testAnImageShowsInPlaceOfItsMarkdownAwayFromTheCursor() {
+        let text = "Intro\n\n![[photo.png|40]]\n\n![[missing.png]]\n\n![[wide.png]]"
+        let view = make(text)
+        select(view, NSRange(location: 0, length: 0))
+        view.imageData = { [unowned self] source in
+            guard case .embed(let ref) = source else { return nil }
+            switch ref.target {
+            case "photo.png": return png(width: 80, height: 40)
+            case "wide.png": return png(width: 3000, height: 300)
+            default: return nil
+            }
+        }
+        let ns = text as NSString
+        let photo = ns.range(of: "![[photo").location, missing = ns.range(of: "![[missing").location, wide = ns.range(of: "![[wide").location
+
+        // The width hint, kept in proportion; a wide image fits the width.
+        let shown = storage(view).attribute(.atlasImage, at: photo, effectiveRange: nil) as? ShownImage
+        XCTAssertEqual(shown?.size, CGSize(width: 40, height: 20))
+        XCTAssertTrue(isHidden(view, at: photo))
+        let fitted = storage(view).attribute(.atlasImage, at: wide, effectiveRange: nil) as? ShownImage
+        XCTAssertLessThan(fitted?.size.width ?? .infinity, 400)
+        XCTAssertEqual(fitted.map { $0.size.width / $0.size.height } ?? 0, 10, accuracy: 0.3, "heights are whole points")
+        // An image with no bytes leaves its Markdown.
+        XCTAssertNil(storage(view).attribute(.atlasImage, at: missing, effectiveRange: nil))
+        XCTAssertFalse(isHidden(view, at: missing + 3))
+
+        // Its line is as tall as the image, and draws it.
+        let line = fragment(view, at: photo)
+        XCTAssertTrue(line is ImageLayoutFragment, "\(String(describing: line))")
+        XCTAssertEqual(line?.layoutFragmentFrame.height ?? 0, 20 + 2 * view.theme.imagePadding, accuracy: 1)
+
+        // With the cursor in it, the Markdown shows to edit; the text is never changed.
+        select(view, NSRange(location: photo + 4, length: 0))
+        XCTAssertNil(storage(view).attribute(.atlasImage, at: photo, effectiveRange: nil))
+        XCTAssertFalse(isHidden(view, at: photo + 4))
+        XCTAssertFalse(fragment(view, at: photo) is ImageLayoutFragment)
+        XCTAssertEqual(content(view), text)
     }
 
     private func type(_ view: AtlasTextView, _ text: String) {
