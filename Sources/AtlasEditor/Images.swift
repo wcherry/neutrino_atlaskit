@@ -52,3 +52,62 @@ extension MarkdownEditing {
         }
     }
 }
+
+/// An image to add to a page, from a paste, a drop or a picker: its bytes, and its file name
+/// when it had one (a pasted screenshot doesn't).
+public struct ImageImport: Equatable, Sendable {
+    public var data: Data
+    public var name: String?
+
+    public init(data: Data, name: String? = nil) {
+        self.data = data
+        self.name = name
+    }
+
+    /// The file extension the bytes call for, from their signature: nil for anything that isn't
+    /// an image Atlas shows.
+    public static func fileExtension(of data: Data) -> String? {
+        let b = [UInt8](data.prefix(12))
+        func starts(_ p: [UInt8], at k: Int = 0) -> Bool { b.count >= k + p.count && Array(b[k..<(k + p.count)]) == p }
+        if starts([0x89, 0x50, 0x4E, 0x47]) { return "png" }
+        if starts([0xFF, 0xD8, 0xFF]) { return "jpg" }
+        if starts(Array("GIF8".utf8)) { return "gif" }
+        if starts(Array("RIFF".utf8)), starts(Array("WEBP".utf8), at: 8) { return "webp" }
+        if starts([0x49, 0x49, 0x2A, 0x00]) || starts([0x4D, 0x4D, 0x00, 0x2A]) { return "tiff" }
+        if starts(Array("BM".utf8)) { return "bmp" }
+        if starts(Array("ftyp".utf8), at: 4), let brand = String(bytes: b.dropFirst(8).prefix(4), encoding: .ascii),
+           ["heic", "heix", "mif1", "msf1", "heim", "heis"].contains(brand) { return "heic" }
+        return nil
+    }
+}
+
+extension MarkdownEditing {
+    /// Embeds `targets` (`![[target]]`) in place of the selection, each a block of its own, with
+    /// blank lines around, so that Live Preview shows them as images. The cursor goes after the last.
+    public static func insertEmbeds(_ targets: [String], in text: String, selection: Range<Int>) -> TextEdit? {
+        guard !targets.isEmpty else { return nil }
+        let ns = text as NSString
+        let first = lineContent(ns, at: selection.lowerBound), last = lineContent(ns, at: selection.upperBound)
+        let head = ns.substring(with: NSRange(location: first.location, length: selection.lowerBound - first.location))
+        let tail = ns.substring(with: NSRange(location: selection.upperBound, length: last.location + last.length - selection.upperBound))
+        func blank(_ s: String) -> Bool { s.allSatisfy { $0 == " " || $0 == "\t" } }
+
+        var before = "", after = ""
+        if !blank(head) {
+            before = "\n\n"
+        } else if first.location > 0, !blank(ns.substring(with: lineContent(ns, at: first.location - 1))) {
+            before = "\n"
+        }
+        let lineEnd = last.location + last.length
+        if !blank(tail) {
+            after = "\n\n"
+        } else if lineEnd < ns.length, !blank(ns.substring(with: lineContent(ns, at: lineEnd + 1))) {
+            after = "\n"
+        }
+        // On an otherwise empty line the embeds replace the line's spaces too.
+        let range = blank(head) ? first.location..<(blank(tail) ? lineEnd : selection.upperBound) : selection
+        let embeds = targets.map { "![[\($0)]]" }.joined(separator: "\n\n")
+        let cursor = range.lowerBound + (before + embeds).utf16.count
+        return TextEdit(range: range, replacement: before + embeds + after, selection: cursor..<cursor)
+    }
+}
