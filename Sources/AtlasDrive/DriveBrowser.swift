@@ -62,6 +62,26 @@ public struct DriveBrowser {
         return folders.sorted(by: byName) + files.sorted(by: byName)
     }
 
+    /// The largest image read whole to preview it, when it has no thumbnail.
+    public static let largestPreviewRead = 25_000_000
+
+    /// A picture of a file to show for a link to it (Show as Preview): its Drive cover thumbnail
+    /// (an image or video's, made by the client that uploaded it), else for an image no bigger
+    /// than `largestPreviewRead` the image itself, decrypted in memory. Nil for a file with
+    /// neither, such as a document: the link shows as a chip.
+    public func preview(of fileID: String) async throws -> Data? {
+        let info: FileInfoDTO = try await http.json("GET", "/api/v1/drive/files/\(fileID)/info")
+        if info.coverThumbnailUrl != nil {
+            do {
+                return try await http.data("GET", "/api/v1/drive/files/\(fileID)/thumbnail")
+            } catch VaultRemoteError.notFound {
+                // Listed but gone: fall through.
+            }
+        }
+        guard info.mimeType?.lowercased().hasPrefix("image/") == true, (info.sizeBytes ?? 0) <= Self.largestPreviewRead else { return nil }
+        return try await read(Item(id: fileID, name: info.name, isFolder: false, mimeType: info.mimeType))
+    }
+
     /// An image's bytes, decrypted in memory.
     public func read(_ item: Item) async throws -> Data {
         let content = try await http.driveContent(of: item.id, keys: keys)

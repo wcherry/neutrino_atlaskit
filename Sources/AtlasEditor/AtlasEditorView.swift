@@ -78,7 +78,13 @@ public struct AtlasEditorView {
         if (view.linkChip == nil) != (linkChip == nil) { view.linkChip = linkChip }
         if let textInsertion, textInsertion.id != coordinator.insertedText {
             coordinator.insertedText = textInsertion.id
-            DispatchQueue.main.async { view.insertAtSelection(textInsertion.text) }
+            DispatchQueue.main.async {
+                if textInsertion.asBlocks {
+                    view.insertBlocks(textInsertion.text.components(separatedBy: "\n"))
+                } else {
+                    view.insertAtSelection(textInsertion.text)
+                }
+            }
         }
     }
 
@@ -95,8 +101,13 @@ public struct AtlasEditorView {
 public struct TextInsertion: Equatable, Sendable {
     public let id = UUID()
     public var text: String
+    /// Each line a paragraph of its own (`MarkdownEditing.insertBlocks`): previews.
+    public var asBlocks: Bool
 
-    public init(text: String) { self.text = text }
+    public init(text: String, asBlocks: Bool = false) {
+        self.text = text
+        self.asBlocks = asBlocks
+    }
 }
 
 /// Images for the editor to add at the cursor, from a picker: each new one is inserted once.

@@ -200,6 +200,33 @@ final class AtlasTextViewTests: XCTestCase {
         XCTAssertEqual(content(view), text)
     }
 
+    func testAFilePreviewShowsItsThumbnailOrElseAChip() {
+        let text = "Intro\n\n![Beach](https://www.getneutrino.app/open/file/b)\n\n![Q4 plan](https://www.getneutrino.app/open/doc/d)"
+        let view = make(text)
+        select(view, NSRange(location: 0, length: 0))
+        view.linkChip = { $0.contains("/open/") ? LinkChip(symbol: "doc") : nil }
+        var asked: [ImageSource] = []
+        view.imageData = { [unowned self] source in
+            asked.append(source)
+            return source == .url("https://www.getneutrino.app/open/file/b") ? png(width: 40, height: 20) : nil
+        }
+        let ns = text as NSString
+        let beach = ns.range(of: "![Beach").location, plan = ns.range(of: "![Q4").location
+        XCTAssertEqual((storage(view).attribute(.atlasImage, at: beach, effectiveRange: nil) as? ShownImage)?.size, CGSize(width: 40, height: 20))
+        // No thumbnail: a chip, its `!` hidden and its `[` the symbol's slot.
+        XCTAssertNil(storage(view).attribute(.atlasImage, at: plan, effectiveRange: nil))
+        XCTAssertNotNil(storage(view).attribute(.atlasChip, at: plan + 2, effectiveRange: nil))
+        XCTAssertTrue(isHidden(view, at: plan))
+        XCTAssertFalse(isHidden(view, at: plan + 1))
+        XCTAssertTrue(asked.contains(.url("https://www.getneutrino.app/open/doc/d")))
+
+        // Show as Chip, and back.
+        XCTAssertTrue(view.setPreview(false, linkAt: beach + 3))
+        XCTAssertTrue(content(view).hasPrefix("Intro\n\n[Beach]("))
+        XCTAssertTrue(view.setPreview(true, linkAt: beach + 3))
+        XCTAssertEqual(content(view), text)
+    }
+
     func testInsertingImagesSavesThemAndEmbedsEachOnItsOwnLine() {
         var saved: [ImageImport] = []
         let view = make("Intro")

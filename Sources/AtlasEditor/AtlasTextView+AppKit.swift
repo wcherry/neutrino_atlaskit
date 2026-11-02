@@ -53,6 +53,21 @@ public final class AtlasTextView: NSTextView {
         perform(TextEdit(range: selection, replacement: text, selection: end..<end), actionName: "Insert Link")
     }
 
+    /// Puts `blocks` in place of the selection, each a paragraph of its own.
+    public func insertBlocks(_ blocks: [String]) {
+        if let edit = MarkdownEditing.insertBlocks(blocks, in: string, selection: selection) { perform(edit, actionName: "Insert Link") }
+    }
+
+    /// Show as Preview / Show as Chip for the link to a file at `offset`: links `linkChip` makes chips.
+    @discardableResult
+    public func setPreview(_ preview: Bool, linkAt offset: Int) -> Bool {
+        guard let linkChip = styling.linkChip,
+              let edit = MarkdownEditing.setPreview(preview, linkAt: offset, in: string, syntax: syntax, isFileLink: { linkChip($0) != nil }) else { return false }
+        AtlasLog.editor.info(preview ? "Showing a file link as a preview" : "Showing a file link as a chip")
+        perform(edit, actionName: preview ? "Show as Preview" : "Show as Chip")
+        return true
+    }
+
     /// Which links show as chips in Live Preview: links to other Neutrino files, for the app.
     public var linkChip: ((String) -> LinkChip?)? {
         get { styling.linkChip }
@@ -453,6 +468,25 @@ public final class AtlasTextView: NSTextView {
         case "\r": toggleTask(nil); return true
         default: return super.performKeyEquivalent(with: event)
         }
+    }
+
+    /// A right-click on a link to a file offers Show as Preview, or on a preview Show as Chip.
+    override public func menu(for event: NSEvent) -> NSMenu? {
+        let menu = super.menu(for: event) ?? NSMenu()
+        guard let linkChip = styling.linkChip else { return menu }
+        let index = characterIndex(forInsertionAt: convert(event.locationInWindow, from: nil))
+        guard let found = MarkdownEditing.fileLink(at: index, in: syntax, isFileLink: { linkChip($0) != nil }) else { return menu }
+        let item = NSMenuItem(title: found.isPreview ? "Show as Chip" : "Show as Preview", action: #selector(togglePreview(_:)), keyEquivalent: "")
+        item.target = self
+        item.representedObject = [index, found.isPreview ? 0 : 1]
+        menu.insertItem(item, at: 0)
+        menu.insertItem(.separator(), at: 1)
+        return menu
+    }
+
+    @objc private func togglePreview(_ item: NSMenuItem) {
+        guard let info = item.representedObject as? [Int], info.count == 2 else { return }
+        setPreview(info[1] == 1, linkAt: info[0])
     }
 
     /// A click on a checkbox ticks it, without moving the cursor. A click on a link follows it

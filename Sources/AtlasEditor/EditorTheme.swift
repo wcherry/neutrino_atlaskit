@@ -183,7 +183,8 @@ final class EditorStyling {
         guard block.range.upperBound <= storage.length else { return }
         imageBlocks.removeAll { $0 == block.range }
         if mode == .livePreview, !(selection.lowerBound <= block.range.upperBound && selection.upperBound >= block.range.lowerBound),
-           let image, let found = MarkdownEditing.blockImage(block, in: storage.string), let shown = image(found) {
+           let image, let found = MarkdownEditing.blockImage(block, in: storage.string, allowingURL: { self.linkChip?($0) != nil }),
+           let shown = image(found) {
             // The Markdown stays, hidden; the line is as tall as the image, which the view's
             // layout fragment draws there.
             var attributes = attributes({ var s = TextStyle(); s.hidden = true; return s }())
@@ -208,15 +209,22 @@ final class EditorStyling {
     private func markChips(_ block: PageSyntax.Block, _ storage: NSTextStorage, _ selection: Range<Int>, _ linkChip: (String) -> LinkChip?) {
         let ns = storage.string as NSString
         for span in block.spans {
-            guard case .link(let url) = span.kind, span.range.count > 2,
+            // A link, or a preview with nothing to show (no thumbnail): its `!` stays hidden.
+            let url: String, slot: Int
+            switch span.kind {
+            case .link(let u): url = u; slot = span.range.lowerBound
+            case .image(let u): url = u; slot = span.range.lowerBound + 1
+            default: continue
+            }
+            guard span.range.count > 2, slot < span.range.upperBound,
                   !(selection.lowerBound <= span.range.upperBound && selection.upperBound >= span.range.lowerBound),
-                  ns.character(at: span.range.lowerBound) == 0x5B /* [ */, let chip = linkChip(url) else { continue }
-            storage.addAttribute(.atlasChip, value: ChipMark(symbol: chip.symbol), range: NSRange(location: span.range.lowerBound, length: span.range.count))
+                  ns.character(at: slot) == 0x5B /* [ */, let chip = linkChip(url) else { continue }
+            storage.addAttribute(.atlasChip, value: ChipMark(symbol: chip.symbol), range: NSRange(location: slot, length: span.range.upperBound - slot))
             // The `[` takes the symbol's width, unseen.
             let font = PlatformFont.systemFont(ofSize: theme.fontSize)
             let bracket = ("[" as NSString).size(withAttributes: [.font: font]).width
             storage.addAttributes([.font: font, .foregroundColor: PlatformColor.clear, .kern: max(0, min(theme.fontSize, 14) + 5 - bracket)],
-                                  range: NSRange(location: span.range.lowerBound, length: 1))
+                                  range: NSRange(location: slot, length: 1))
         }
     }
 }
@@ -228,9 +236,14 @@ extension AtlasTextView {
         switch source {
         case .embed(let ref): name = "![[\(ref.target)]]"
         case .path(let path): name = "![](\(path))"
+        case .url(let url): name = "![](\(url))"
         }
         guard let data = imageData(source) else {
-            AtlasLog.images.notice("\(name): no such image in the vault")
+            if case .url = source {
+                AtlasLog.images.info("\(name): no preview (yet); shown as a chip")
+            } else {
+                AtlasLog.images.notice("\(name): no such image in the vault")
+            }
             return nil
         }
         guard let image = ShownImage.decode(data) else {
