@@ -81,6 +81,33 @@ final class VaultWorkspaceTests: XCTestCase {
                        "Pasted image 20261026073320.png")
     }
 
+    func testMovingAFolderMovesEverythingInItAndRewritesLinks() async throws {
+        let w = try workspace(FakeDrive())
+        try w.write(text: "See [[Work/Plan]] and ![[Work/Assets/chart.png]]\n", at: "Home.md")
+        try w.write(text: "# Plan\n\nSee [[Notes]].\n", at: "Work/Plan.md")
+        try w.write(text: "notes\n", at: "Work/Notes.md")
+        try w.write(Data([0x89, 0x50]), at: "Work/Assets/chart.png")
+        try w.write(text: "elsewhere\n", at: "Workshop/Plan.md")
+
+        let rewritten = try await w.moveFolder(from: "Work", to: "Archive/2026/Work")
+        XCTAssertGreaterThan(rewritten, 0)
+        XCTAssertEqual(w.paths, ["Archive/2026/Work/Assets/chart.png", "Archive/2026/Work/Notes.md", "Archive/2026/Work/Plan.md",
+                                 "Home.md", "Workshop/Plan.md"], "a folder named alike is left alone")
+        let home = try XCTUnwrap(try w.text(at: "Home.md"))
+        XCTAssertTrue(home.contains("[[Work/Plan]]") || home.contains("[[2026/Work/Plan]]") || home.contains("[[Archive/2026/Work/Plan]]"), home)
+        XCTAssertEqual(try w.index.backlinks(to: "Archive/2026/Work/Plan.md").map(\.source), ["Home.md"])
+
+        // Not into itself, and not onto files already there.
+        do { try await w.moveFolder(from: "Archive", to: "Archive/Inner"); XCTFail("moved into itself") } catch {}
+        try w.write(text: "x\n", at: "Other/Notes.md")
+        do { try await w.moveFolder(from: "Archive/2026/Work", to: "Other"); XCTFail("overwrote") } catch {}
+        XCTAssertNotNil(try w.text(at: "Archive/2026/Work/Notes.md"), "nothing moved")
+
+        XCTAssertEqual(VaultWorkspace.path(of: "Inbox/Idea.md", movedInto: "Projects/"), "Projects/Idea.md")
+        XCTAssertEqual(VaultWorkspace.path(of: "Inbox/Idea.md", movedInto: ""), "Idea.md")
+        XCTAssertEqual(VaultWorkspace.folder("Inbox/Ideas/", movedInto: "Projects"), "Projects/Ideas")
+    }
+
     func testSyncResultsReachTheIndex() async throws {
         let drive = FakeDrive()
         let here = try workspace(drive)
