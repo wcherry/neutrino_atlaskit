@@ -315,6 +315,12 @@ typed. Everything the reader sees is attributes:
 - After a keystroke the page is mapped again (well under a millisecond for a usual page). After
   a selection change, only the blocks the cursor left or entered are restyled.
 
+**Chips and previews.** The app's `linkChip` names the links that are files of its own
+(Neutrino links). Such a link shows as a chip (`ChipLayoutFragment`, drawn in the slot its `[`
+leaves); written as an image, `![Name](link)` on a line of its own, it shows the picture the
+app supplies for `ImageSource.url`, or the chip when there's none. `setPreview` switches
+between the two (macOS: right-click). Other web images are never fetched.
+
 **Logging.** `AtlasLog` (in AtlasCore) has a channel per area (`app`, `sync`, `drive`,
 `editor`, `images`). Each entry goes to Apple's unified log (subsystem `com.neutrino.atlas`,
 visible in Console) and to an in-memory buffer of the run's last 5,000 entries, which the apps
