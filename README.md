@@ -315,6 +315,12 @@ typed. Everything the reader sees is attributes:
 - After a keystroke the page is mapped again (well under a millisecond for a usual page). After
   a selection change, only the blocks the cursor left or entered are restyled.
 
+**Logging.** `AtlasLog` (in AtlasCore) has a channel per area (`app`, `sync`, `drive`,
+`editor`, `images`). Each entry goes to Apple's unified log (subsystem `com.neutrino.atlas`,
+visible in Console) and to an in-memory buffer of the run's last 5,000 entries, which the apps
+show (the Mac app's Help › Show Logs); the unified log takes seconds to read back. Log paths,
+ids, counts, sizes, statuses and errors, never page content.
+
 Commands are pure functions in `MarkdownEditing`, returning a `TextEdit`, and both views run
 them through the text system so they're undoable:
 - **Return** continues a list item, task or quote. On an empty item it removes the marker, which
@@ -327,6 +333,14 @@ them through the text system so they're undoable:
   ImageIO, keeps the hidden Markdown as the text, and makes the line as tall as the image, which
   a TextKit 2 layout fragment draws. Images inside a sentence, and web images, stay links:
   fetching one would tell its server which page is open.
+- **Adding images**: pasting or dropping image files or image data (a screenshot) calls the
+  app's `importImages`, which saves them in the vault (`VaultWorkspace.addAttachment`, named
+  `Pasted image <timestamp>.png` when they had no name) and returns a target for each; each is
+  embedded on a line of its own (`MarkdownEditing.insertEmbeds`), so it shows at once. Image
+  data that comes with text (a copy from a document) pastes as the text. `insertImages` does
+  the same for a picker. TIFF from the Mac pasteboard is kept as PNG. `AtlasDrive`'s
+  `DriveBrowser` lists the folders and images in the user's Drive (`?type=photo`), leaving out
+  the vault, and reads one, decrypted in memory, to add.
 - **⌥⌘↑** and **⌥⌘↓** move the selected lines past the block above or below. Both sides grow to
   whole blocks: a list item carries its nested items and passes a sibling with all of its own,
   and code and math blocks move whole. The frontmatter stays first.

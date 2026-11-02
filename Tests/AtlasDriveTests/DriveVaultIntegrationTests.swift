@@ -189,6 +189,46 @@ final class DriveVaultIntegrationTests: XCTestCase {
         XCTAssertTrue(report.unresolvedLinks.isEmpty)
     }
 
+    // MARK: Images from Drive
+
+    func testDriveImagesAreBrowsedAndRead() async throws {
+        let account = try await newAccount()
+        let userID = account.keyring.userId
+        let png = Data([0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A, 7, 7, 7])
+        // The vault, which the browser leaves out; a folder with an encrypted image and a page;
+        // an image at the root that was never encrypted.
+        let vault = try await DriveVaultRemote.createVault(named: "Atlas", baseURL: server, tokens: account.token)
+        _ = try await remote(account, vault: vault).create(at: "in-vault.png", data: png)
+        let trips = try await DriveVaultRemote.createVault(named: "Trips", baseURL: server, tokens: account.token)
+        _ = try await remote(account, vault: trips).create(at: "beach.png", data: png)
+        _ = try await remote(account, vault: trips).create(at: "Notes.md", data: Data("# Notes\n".utf8))
+        var form = MultipartFormBody()
+        form.appendFile(name: "file", fileName: "plain.png", mimeType: "image/png", data: png)
+        var request = URLRequest(url: server.appendingPathComponent("/api/v1/drive/files/upload"))
+        request.httpMethod = "POST"
+        request.setValue("Bearer \(account.token.value)", forHTTPHeaderField: "Authorization")
+        request.setValue(form.contentType, forHTTPHeaderField: "Content-Type")
+        request.httpBody = form.finalized()
+        _ = try await URLSession.shared.data(for: request)
+
+        let browser = DriveBrowser(baseURL: server, keys: account.keyring, tokens: account.token)
+        let root = try await browser.images(in: userID, excluding: [vault])
+        // A new account's Drive has folders of its own; these are the ones the test made.
+        XCTAssertFalse(root.contains { $0.id == vault }, "the vault is left out")
+        XCTAssertEqual(root.filter { !$0.isFolder }.map(\.name), ["plain.png"])
+        XCTAssertEqual(root.map(\.isFolder), root.map(\.isFolder).sorted { $0 && !$1 }, "folders first")
+        let tripsFolder = try XCTUnwrap(root.first { $0.name == "Trips" && $0.isFolder })
+        let plainImage = try XCTUnwrap(root.first { $0.name == "plain.png" })
+        let inTrips = try await browser.images(in: tripsFolder.id)
+        XCTAssertEqual(inTrips.map(\.name), ["beach.png"], "images only")
+        guard inTrips.count == 1 else { return XCTFail("\(inTrips)") }
+
+        let beach = try await browser.read(inTrips[0])
+        XCTAssertEqual(beach, png, "decrypted")
+        let plain = try await browser.read(plainImage)
+        XCTAssertEqual(plain, png, "never encrypted")
+    }
+
     func testKeyRotationKeepsOldFilesReadable() async throws {
         var account = try await newAccount()
         let vault = try await DriveVaultRemote.createVault(named: "Rotation", baseURL: server, tokens: account.token)
@@ -210,6 +250,44 @@ final class DriveVaultIntegrationTests: XCTestCase {
         XCTAssertEqual(key["keyVersion"] as? Int, 2)
         let newContent = try await remote(account, vault: vault).download(new.id)
         XCTAssertEqual(newContent.data, Data("sealed to v2\n".utf8))
+    }
+
+    /// The reported failure: on a rotated account, a file sealed to v2 whose key is filed as v1
+    /// (as the iOS apps that unlocked from the key vault filed them). It must read, and its key
+    /// be filed again as v2.
+    @MainActor
+    func testAMisfiledKeyIsReadAndFiledAgain() async throws {
+        var account = try await newAccount()
+        let vault = try await DriveVaultRemote.createVault(named: "Misfiled", baseURL: server, tokens: account.token)
+        let v1 = account.keyring.entries[0]
+        let v2 = newKeyPair(version: 2)
+        _ = try await call("POST", "/api/v1/auth/keys", token: account.token.value, json: ["publicKey": Base64URL.encode(v2.publicKey)])
+        let retired = KeyringEntry(version: 1, publicKey: v1.publicKey, secretKey: v1.secretKey, createdAt: v1.createdAt, retiredAt: v2.createdAt)
+        account.keyring = Keyring(userId: account.keyring.userId, entries: [retired, v2])
+
+        let png = Data([0x89, 0x50, 0x4E, 0x47, 1, 2, 3])
+        let photo = try await remote(account, vault: vault).create(at: "Attachments/photo.png", data: png)
+        let sealed = try await call("GET", "/api/v1/drive/files/\(photo.id)/key", token: account.token.value)
+        XCTAssertEqual(sealed["keyVersion"] as? Int, 2)
+        _ = try await call("PUT", "/api/v1/drive/files/\(photo.id)/key", token: account.token.value,
+                           json: ["encryptedFileKey": sealed["encryptedFileKey"] as! String, "keyVersion": 1])
+
+        let read = try await remote(account, vault: vault).download(photo.id)
+        XCTAssertEqual(read.data, png)
+        let refiled = try await call("GET", "/api/v1/drive/files/\(photo.id)/key", token: account.token.value)
+        XCTAssertEqual(refiled["keyVersion"] as? Int, 2, "filed again under the key that opens it")
+
+        // A key sealed to no key this account holds: sync reports it and carries on.
+        let stranger = newKeyPair(version: 9)
+        _ = try await remote(account, vault: vault).create(at: "Page.md", data: Data("# Page\n".utf8))
+        let lost = try await remote(account, vault: vault).create(at: "Attachments/lost.png", data: png)
+        _ = try await call("PUT", "/api/v1/drive/files/\(lost.id)/key", token: account.token.value,
+                           json: ["encryptedFileKey": try DriveFileCrypto.seal(dek: DriveFileCrypto.newDEK(), toPublicKey: stranger.publicKey), "keyVersion": 2])
+        let workspace = try VaultWorkspace(vault: try Vault(storage: MemoryStorage()), remote: remote(account, vault: vault))
+        let report = try await workspace.sync()
+        XCTAssertEqual(report?.unreadable, ["Attachments/lost.png"])
+        XCTAssertEqual(Set(report?.updated ?? []), ["Attachments/photo.png", "Page.md"])
+        XCTAssertEqual(try workspace.content(at: "Attachments/photo.png"), png)
     }
 
     // MARK: Sync over the real server

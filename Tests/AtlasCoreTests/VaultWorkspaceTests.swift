@@ -62,6 +62,25 @@ final class VaultWorkspaceTests: XCTestCase {
         XCTAssertEqual(try w.index.quickSwitch("plan").map(\.path), ["Plan.md"])
     }
 
+    func testAttachmentsAreNumberedAndSynced() async throws {
+        let drive = FakeDrive()
+        let w = try workspace(drive)
+        let png = Data([0x89, 0x50, 0x4E, 0x47])
+        XCTAssertEqual(try w.addAttachment(png, named: "photo.png", in: "Attachments"), "Attachments/photo.png")
+        XCTAssertEqual(try w.addAttachment(png, named: "photo.png", in: "Attachments"), "Attachments/photo 2.png")
+        XCTAssertEqual(try w.addAttachment(png, named: "../.secret/x.png", in: ""), "-.secret-x.png", "no folders, not hidden")
+        XCTAssertEqual(try w.addAttachment(png, named: ".png", in: ""), "png", "hidden name, no extension left")
+        XCTAssertEqual(try w.content(at: "Attachments/photo 2.png"), png)
+        _ = try await w.sync()
+        let uploaded = try await drive.list().map(\.path)
+        XCTAssertTrue(uploaded.contains("Attachments/photo.png"), "\(uploaded)")
+
+        var utc = Calendar(identifier: .gregorian)
+        utc.timeZone = TimeZone(identifier: "UTC")!
+        XCTAssertEqual(VaultWorkspace.pastedImageName(extension: "png", date: Date(timeIntervalSince1970: 1_793_000_000), calendar: utc),
+                       "Pasted image 20261026073320.png")
+    }
+
     func testSyncResultsReachTheIndex() async throws {
         let drive = FakeDrive()
         let here = try workspace(drive)

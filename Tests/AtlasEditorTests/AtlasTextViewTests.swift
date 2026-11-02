@@ -178,6 +178,74 @@ final class AtlasTextViewTests: XCTestCase {
         XCTAssertEqual(content(view), text)
     }
 
+    func testInsertingImagesSavesThemAndEmbedsEachOnItsOwnLine() {
+        var saved: [ImageImport] = []
+        let view = make("Intro")
+        select(view, NSRange(location: 5, length: 0))
+        view.insertImages([ImageImport(data: png(width: 2, height: 2))])
+        XCTAssertEqual(content(view), "Intro", "nothing happens without importImages")
+        view.importImages = { images in
+            saved += images
+            return images.map { $0.name ?? "Pasted image.png" }
+        }
+        view.insertImages([ImageImport(data: png(width: 2, height: 2)), ImageImport(data: png(width: 4, height: 4), name: "dot.png")])
+        XCTAssertEqual(content(view), "Intro\n\n![[Pasted image.png]]\n\n![[dot.png]]")
+        XCTAssertEqual(saved.map(\.name), [nil, "dot.png"])
+        XCTAssertEqual(selected(view), NSRange(location: (content(view) as NSString).length, length: 0))
+    }
+
+    #if canImport(AppKit) && !targetEnvironment(macCatalyst)
+    /// A private pasteboard: the tests never touch the real clipboard.
+    func testImagesOnAPasteboard() throws {
+        let board = NSPasteboard(name: NSPasteboard.Name("AtlasEditorTests.images"))
+        defer { board.releaseGlobally() }
+        let image = png(width: 3, height: 2)
+
+        board.clearContents()
+        board.setData(image, forType: .png)
+        XCTAssertEqual(AtlasTextView.images(on: board, preferText: true), [ImageImport(data: image)])
+
+        // TIFF, the Mac's own image type, is kept as PNG.
+        let tiff = NSBitmapImageRep(data: image)!.tiffRepresentation!
+        board.clearContents()
+        board.setData(tiff, forType: .tiff)
+        let converted = AtlasTextView.images(on: board, preferText: true)
+        XCTAssertEqual(converted.count, 1)
+        XCTAssertEqual(converted.first.flatMap { ImageImport.fileExtension(of: $0.data) }, "png")
+
+        // An image that comes with text pastes as text; dropped, it's the image.
+        board.clearContents()
+        board.setString("A caption", forType: .string)
+        board.setData(image, forType: .png)
+        XCTAssertEqual(AtlasTextView.images(on: board, preferText: true), [])
+        XCTAssertEqual(AtlasTextView.images(on: board, preferText: false).count, 1)
+
+        // Files: images by their bytes, with their names; anything else isn't one.
+        let folder = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: folder) }
+        let photo = folder.appendingPathComponent("Holiday.png"), notes = folder.appendingPathComponent("notes.txt")
+        try image.write(to: photo)
+        try Data("hello".utf8).write(to: notes)
+        board.clearContents()
+        board.writeObjects([photo as NSURL, notes as NSURL])
+        XCTAssertEqual(AtlasTextView.images(on: board, preferText: true), [ImageImport(data: image, name: "Holiday.png")])
+    }
+    #else
+    /// A private pasteboard: the tests never touch the real one.
+    func testImagesOnAPasteboard() throws {
+        let board = try XCTUnwrap(UIPasteboard(name: UIPasteboard.Name("AtlasEditorTests.images"), create: true))
+        defer { UIPasteboard.remove(withName: board.name) }
+        let image = png(width: 3, height: 2)
+        board.items = [["public.png": image]]
+        XCTAssertEqual(AtlasTextView.images(on: board), [ImageImport(data: image)])
+        board.items = [["public.png": image], ["public.utf8-plain-text": "words"]]
+        XCTAssertEqual(AtlasTextView.images(on: board).count, 1)
+        board.items = []
+        XCTAssertEqual(AtlasTextView.images(on: board), [])
+    }
+    #endif
+
     private func type(_ view: AtlasTextView, _ text: String) {
         #if canImport(AppKit) && !targetEnvironment(macCatalyst)
         view.insertText(text, replacementRange: view.selectedRange())

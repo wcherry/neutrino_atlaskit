@@ -47,6 +47,10 @@ public final class AtlasTextView: NSTextView {
     private let imageFragments = ImageFragments()
     private var styledWidth: CGFloat = 0
 
+    /// Saves images pasted, dropped or picked (`insertImages`) into the vault, and returns the
+    /// link target for each, in order. Nil leaves pasting and dropping as they were.
+    public var importImages: (([ImageImport]) -> [String])?
+
     /// Forgets the decoded images and asks `imageData` again, for when the vault's files change.
     public func reloadImages() {
         decodedImages = [:]
@@ -93,6 +97,7 @@ public final class AtlasTextView: NSTextView {
         typingAttributes = styling.baseAttributes
         imageFragments.padding = styling.theme.imagePadding
         textLayoutManager?.delegate = imageFragments
+        registerForDraggedTypes(registeredDraggedTypes + [.fileURL, .png, .tiff, Self.jpeg, Self.heic])
         styling.image = { [weak self] in self?.shownImage($0) }
     }
 
@@ -100,7 +105,7 @@ public final class AtlasTextView: NSTextView {
         guard let imageData, let container = textContainer else { return nil }
         let available = container.size.width - 2 * container.lineFragmentPadding
         guard available > 0 else { return nil }
-        if decodedImages[found.source] == nil { decodedImages[found.source] = imageData(found.source).flatMap(ShownImage.decode) }
+        if decodedImages[found.source] == nil { decodedImages[found.source] = Self.decode(found.source, imageData) }
         guard let image = decodedImages[found.source] ?? nil else { return nil }
         let size = ShownImage.size(of: image, width: found.width, available: available)
         return size.width > 0 ? ShownImage(image: image, size: size) : nil
@@ -248,12 +253,94 @@ public final class AtlasTextView: NSTextView {
     /// pastes as plain text.
     override public func paste(_ sender: Any?) {
         let board = NSPasteboard.general
+        // Image files (a Finder copy), or an image with no text (a screenshot).
+        if importImages != nil {
+            let images = Self.images(on: board, preferText: true)
+            AtlasLog.editor.info("Paste: \(Self.describe(board)) → \(images.isEmpty ? "as text" : "\(images.count) image(s)")")
+            if !images.isEmpty {
+                insertImages(images)
+                return
+            }
+        }
         if let plain = board.string(forType: .string),
            let edit = MarkdownEditing.pasteLink(plain: plain, html: board.string(forType: .html), in: string, selection: selection, syntax: syntax) {
             perform(edit, actionName: "Paste")
             return
         }
         super.paste(sender)
+    }
+
+    // MARK: Images
+
+    private static let jpeg = NSPasteboard.PasteboardType("public.jpeg")
+    private static let heic = NSPasteboard.PasteboardType("public.heic")
+
+    /// Adds images at the selection: `importImages` saves them, and each is embedded on a line
+    /// of its own, which Live Preview shows as the image. One undoable edit.
+    public func insertImages(_ images: [ImageImport]) {
+        guard let importImages, !images.isEmpty else {
+            AtlasLog.images.notice("Insert of \(images.count) image(s) ignored: \(self.importImages == nil ? "the app takes no images" : "none")")
+            return
+        }
+        let targets = importImages(images)
+        AtlasLog.images.info("Inserting \(images.count) image(s) at \(self.selection.lowerBound): \(targets.map { "![[\($0)]]" }.joined(separator: ", "))")
+        if let edit = MarkdownEditing.insertEmbeds(targets, in: string, selection: selection) {
+            perform(edit, actionName: targets.count == 1 ? "Insert Image" : "Insert Images")
+        }
+    }
+
+    /// The images on a pasteboard: image files, else image data, as PNG for TIFF. With
+    /// `preferText`, image data that comes with text (a copy from a document) is left to paste as text.
+    static func images(on board: NSPasteboard, preferText: Bool) -> [ImageImport] {
+        if let urls = board.readObjects(forClasses: [NSURL.self], options: [.urlReadingFileURLsOnly: true]) as? [URL], !urls.isEmpty {
+            return urls.compactMap { url in
+                guard let data = try? Data(contentsOf: url), ImageImport.fileExtension(of: data) != nil else { return nil }
+                return ImageImport(data: data, name: url.lastPathComponent)
+            }
+        }
+        if preferText, board.string(forType: .string) != nil { return [] }
+        for type in [NSPasteboard.PasteboardType.png, jpeg, heic] {
+            if let data = board.data(forType: type) { return [ImageImport(data: data)] }
+        }
+        if let tiff = board.data(forType: .tiff), let png = ShownImage.png(from: tiff) { return [ImageImport(data: png)] }
+        return []
+    }
+
+    /// A pasteboard's types and file names, for the log.
+    static func describe(_ board: NSPasteboard) -> String {
+        let types = board.types?.map(\.rawValue).joined(separator: ", ") ?? "none"
+        let urls = (board.readObjects(forClasses: [NSURL.self], options: [.urlReadingFileURLsOnly: true]) as? [URL]) ?? []
+        return "types [\(types)]" + (urls.isEmpty ? "" : ", files [\(urls.map(\.lastPathComponent).joined(separator: ", "))]")
+    }
+
+    /// Whether a drag carries images, judged without reading files: called as it moves.
+    private static func carriesImages(_ board: NSPasteboard) -> Bool {
+        if let urls = board.readObjects(forClasses: [NSURL.self], options: [.urlReadingFileURLsOnly: true]) as? [URL], !urls.isEmpty {
+            return urls.contains { MarkdownEditing.imageExtensions.contains($0.pathExtension.lowercased()) }
+        }
+        return board.availableType(from: [.png, .tiff, jpeg, heic]) != nil
+    }
+
+    override public func draggingUpdated(_ sender: NSDraggingInfo) -> NSDragOperation {
+        let operation = super.draggingUpdated(sender)
+        return importImages != nil && Self.carriesImages(sender.draggingPasteboard) ? .copy : operation
+    }
+
+    /// Images dropped on the page go in where they're dropped.
+    override public func performDragOperation(_ sender: NSDraggingInfo) -> Bool {
+        let board = sender.draggingPasteboard
+        guard importImages != nil, Self.carriesImages(board) else {
+            AtlasLog.editor.info("Drop: \(Self.describe(board)) → as text")
+            return super.performDragOperation(sender)
+        }
+        let images = Self.images(on: board, preferText: false)
+        AtlasLog.editor.info("Drop: \(Self.describe(board)) → \(images.count) image(s)")
+        guard !images.isEmpty else { return false }
+        let at = characterIndexForInsertion(at: convert(sender.draggingLocation, from: nil))
+        window?.makeFirstResponder(self)
+        setSelectedRange(NSRange(location: at, length: 0))
+        insertImages(images)
+        return true
     }
 
     /// Follows the link at a character, if a click there should (see `shouldOpenLink`).
