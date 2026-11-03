@@ -1,0 +1,93 @@
+{
+  "description": "Heading and block-id targets within one page, and how heading links are written (SPEC §7, \"Headings and block ids\").",
+  "page": "---\ntitle: Plan\n---\n# Plan\n\n## Goals\n\n> ### Goals!\n\n## Risks [open]\n\n## Risks   open\n\n## **Next** steps\n\n## C# notes\n\n## Café\n\nSummary paragraph. ^summary\n\n- first item\n- second item ^second\n  - nested\n\n> [!note] Callout\n> ### Inside a callout\n\n",
+  "anchors": [
+    {
+      "heading": "Goals",
+      "expect": "## Goals",
+      "why": "first match in document order"
+    },
+    {
+      "heading": "goals",
+      "expect": "## Goals",
+      "why": "case-folded"
+    },
+    {
+      "heading": "Goals!",
+      "expect": "> ### Goals!",
+      "why": "a heading inside a quote counts"
+    },
+    {
+      "heading": "Risks open",
+      "expect": "## Risks [open]",
+      "why": "brackets are dropped from the key; the first of two that match wins"
+    },
+    {
+      "heading": "risks [open]",
+      "expect": "## Risks [open]",
+      "why": "the link's own brackets are dropped too"
+    },
+    {
+      "heading": "Next steps",
+      "expect": "## **Next** steps",
+      "why": "matched on plain text, without formatting"
+    },
+    {
+      "heading": "C# notes",
+      "expect": "## C# notes",
+      "why": "an inner # is compared as written"
+    },
+    {
+      "heading": "CAFÉ",
+      "expect": "## Café",
+      "why": "NFC and case folding"
+    },
+    {
+      "heading": "Inside a callout",
+      "expect": "> ### Inside a callout",
+      "why": "a heading inside a callout counts"
+    },
+    {
+      "heading": "Nowhere",
+      "expect": null,
+      "why": "no such heading: the link opens the page at its top"
+    },
+    {
+      "blockId": "summary",
+      "expect": "Summary paragraph. ^summary",
+      "why": "an id on a paragraph names the paragraph"
+    },
+    {
+      "blockId": "second",
+      "expect": "- second item ^second",
+      "why": "an id at the end of a list item names the item"
+    },
+    {
+      "blockId": "missing",
+      "expect": null,
+      "why": "no such id"
+    }
+  ],
+  "headingLinks": [
+    {
+      "text": "Risks [open]",
+      "expect": "Risks open"
+    },
+    {
+      "text": "A | B",
+      "expect": "A B"
+    },
+    {
+      "text": "Caret ^ here",
+      "expect": "Caret here"
+    },
+    {
+      "text": "C# notes",
+      "expect": "C# notes"
+    },
+    {
+      "text": "Spaced   out\twords",
+      "expect": "Spaced out words"
+    }
+  ]
+}

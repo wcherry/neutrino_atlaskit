@@ -20,7 +20,7 @@ extension String {
 /// Rules of the Atlas Markdown dialect that more than one part of AtlasCore needs.
 public enum AtlasMarkdown {
     /// The spec this package implements. It must match the vendored corpus's manifest.
-    public static let specVersion = "1.0.0-draft.4"
+    public static let specVersion = "1.0.0-draft.5"
 
     /// The key two strings are compared by, for tags and link resolution: NFC, then
     /// case-folded (SPEC §4.4, §7). Display always keeps the original spelling.
