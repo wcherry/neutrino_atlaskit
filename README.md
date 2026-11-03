@@ -350,6 +350,11 @@ them through the text system so they're undoable:
 - **⌥⌘↑** and **⌥⌘↓** move the selected lines past the block above or below. Both sides grow to
   whole blocks: a list item carries its nested items and passes a sibling with all of its own,
   and code and math blocks move whole. The frontmatter stays first.
+- **Drag handle** (macOS): hovering a block shows a grip in the left margin; dragging it shows
+  a line where the block will land, and dropping moves it, one undoable edit. The blocks are
+  `MarkdownEditing.dragBlocks`: each top-level block, and each top-level list item with its
+  nested items. `moveBlock` keeps blank lines right, so paragraphs never run together and list
+  items moved among list items stay a list.
 - Clicking or tapping a checkbox, or **⌘↩**, ticks a task by changing the one character
   between the brackets (SPEC §8.2).
 - **⌘B**, **⌘I** and **⌘E** wrap or unwrap the selection in `**`, `_` or a backtick.

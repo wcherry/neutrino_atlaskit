@@ -280,6 +280,28 @@ final class AtlasTextViewTests: XCTestCase {
         board.writeObjects([photo as NSURL, notes as NSURL])
         XCTAssertEqual(AtlasTextView.images(on: board, preferText: true), [ImageImport(data: image, name: "Holiday.png")])
     }
+    func testTheDragHandleShowsBesideABlockAndMovesIt() throws {
+        let text = "One\n\nTwo\n\n- a\n- b"
+        let view = make(text)
+        view.isEditable = true
+        let two = (text as NSString).range(of: "Two").location
+        let line = try XCTUnwrap(view.lineRect(at: two))
+        view.showBlockHandle(at: NSPoint(x: line.midX, y: line.midY))
+        XCTAssertFalse(view.blockHandle.isHidden)
+        XCTAssertEqual(view.blockHandle.block, two..<(two + 3))
+        XCTAssertLessThan(view.blockHandle.frame.maxX, view.textContainerOrigin.x, "in the margin, clear of the text")
+        XCTAssertEqual(view.blockHandle.frame.midY, line.midY, accuracy: 1)
+
+        XCTAssertTrue(view.moveBlock(at: two, before: 0))
+        XCTAssertEqual(content(view), "Two\n\nOne\n\n- a\n- b")
+        XCTAssertEqual(selected(view), NSRange(location: 0, length: 0), "the cursor goes with it")
+        XCTAssertTrue(view.blockHandle.isHidden, "an edit hides it")
+        let b = (content(view) as NSString).range(of: "- b").location
+        XCTAssertTrue(view.moveBlock(at: b, before: (content(view) as NSString).range(of: "- a").location))
+        XCTAssertEqual(content(view), "Two\n\nOne\n\n- b\n- a")
+        XCTAssertFalse(view.moveBlock(at: 0, before: 0), "onto itself")
+    }
+
     #else
     /// A private pasteboard: the tests never touch the real one.
     func testImagesOnAPasteboard() throws {
