@@ -47,6 +47,33 @@ public final class AtlasTextView: UITextView, UITextViewDelegate {
     private let imageFragments = ImageFragments()
     private var styledWidth: CGFloat = 0
 
+    /// Puts `text` in place of the selection, undoably, with the cursor after it.
+    public func insertAtSelection(_ text: String) {
+        let end = selection.lowerBound + text.utf16.count
+        perform(TextEdit(range: selection, replacement: text, selection: end..<end))
+    }
+
+    /// Puts `blocks` in place of the selection, each a paragraph of its own.
+    public func insertBlocks(_ blocks: [String]) {
+        if let edit = MarkdownEditing.insertBlocks(blocks, in: text, selection: selection) { perform(edit) }
+    }
+
+    /// Show as Preview / Show as Chip for the link to a file at `offset`: links `linkChip` makes chips.
+    @discardableResult
+    public func setPreview(_ preview: Bool, linkAt offset: Int) -> Bool {
+        guard let linkChip = styling.linkChip,
+              let edit = MarkdownEditing.setPreview(preview, linkAt: offset, in: text, syntax: syntax, isFileLink: { linkChip($0) != nil }) else { return false }
+        AtlasLog.editor.info(preview ? "Showing a file link as a preview" : "Showing a file link as a chip")
+        perform(edit)
+        return true
+    }
+
+    /// Which links show as chips in Live Preview: links to other Neutrino files, for the app.
+    public var linkChip: ((String) -> LinkChip?)? {
+        get { styling.linkChip }
+        set { styling.linkChip = newValue; restyle() }
+    }
+
     /// Saves images pasted, dropped or picked (`insertImages`) into the vault, and returns the
     /// link target for each, in order. Nil leaves pasting and dropping as they were.
     public var importImages: (([ImageImport]) -> [String])?

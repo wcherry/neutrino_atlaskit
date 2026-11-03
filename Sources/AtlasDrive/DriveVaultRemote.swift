@@ -345,5 +345,13 @@ struct ErrorEnvelope: Decodable { struct Body: Decodable { let code: String? }; 
 struct FolderDTO: Decodable { let id: String; let name: String }
 struct FileDTO: Decodable { let id: String; let name: String; let contentVersion: Int; let encryptedMetadata: String?; var mimeType: String? }
 struct FolderContentsDTO: Decodable { let folders: [FolderDTO]; let files: [FileDTO] }
-struct FileInfoDTO: Decodable { let name: String; let contentVersion: Int; let encryptedMetadata: String? }
+struct FileInfoDTO: Decodable {
+    let name: String
+    let contentVersion: Int
+    let encryptedMetadata: String?
+    var mimeType: String?
+    var sizeBytes: Int?
+    /// A path on the server, when the file has a cover thumbnail.
+    var coverThumbnailUrl: String?
+}
 struct FileKeyDTO: Decodable { let encryptedFileKey: String; let keyVersion: Int }

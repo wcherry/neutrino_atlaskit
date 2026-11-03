@@ -14,6 +14,8 @@ public struct AtlasEditorView {
     var imagesVersion: Int
     var importImages: (([ImageImport]) -> [String])?
     var insertion: ImageInsertion?
+    var linkChip: ((String) -> LinkChip?)?
+    var textInsertion: TextInsertion?
 
     /// `onOpenLink` is called when a link is clicked or tapped; `linkCompletions` suggests pages,
     /// and then headings, while a `[[wiki link]]` is typed. A new `anchor` is shown once, when
@@ -21,12 +23,14 @@ public struct AtlasEditorView {
     /// `SlashCommand.builtIn()` when nil. `imageData` gives the bytes of the images Live Preview
     /// shows; they're decoded once, and again when `imagesVersion` changes, so change it when the
     /// files they come from do. `importImages` saves images pasted or dropped, and returns the
-    /// target to embed each by; a new `insertion` adds images at the cursor, once.
+    /// target to embed each by; a new `insertion` adds images at the cursor, once. `linkChip` says
+    /// which links show as chips; it's read once. A new `textInsertion` replaces the selection, once.
     public init(text: Binding<String>, mode: EditorMode = .livePreview, theme: EditorTheme = EditorTheme(),
                 onOpenLink: ((LinkTarget) -> Void)? = nil, linkCompletions: ((LinkCompletionContext) -> [LinkCompletion])? = nil,
                 anchor: EditorAnchor? = nil, slashCommands: (() -> [SlashCommand])? = nil,
                 imageData: ((ImageSource) -> Data?)? = nil, imagesVersion: Int = 0,
-                importImages: (([ImageImport]) -> [String])? = nil, insertion: ImageInsertion? = nil) {
+                importImages: (([ImageImport]) -> [String])? = nil, insertion: ImageInsertion? = nil,
+                linkChip: ((String) -> LinkChip?)? = nil, textInsertion: TextInsertion? = nil) {
         _text = text
         self.mode = mode
         self.theme = theme
@@ -38,6 +42,8 @@ public struct AtlasEditorView {
         self.imagesVersion = imagesVersion
         self.importImages = importImages
         self.insertion = insertion
+        self.linkChip = linkChip
+        self.textInsertion = textInsertion
     }
 
     public final class Coordinator {
@@ -45,6 +51,7 @@ public struct AtlasEditorView {
         var revealed: UUID?
         var imagesVersion: Int?
         var inserted: UUID?
+        var insertedText: UUID?
         init(text: Binding<String>) { self.text = text }
     }
 
@@ -67,6 +74,18 @@ public struct AtlasEditorView {
             coordinator.inserted = insertion.id
             DispatchQueue.main.async { view.insertImages(insertion.images) }
         }
+        // Restyles the page: only when it's first given or taken away.
+        if (view.linkChip == nil) != (linkChip == nil) { view.linkChip = linkChip }
+        if let textInsertion, textInsertion.id != coordinator.insertedText {
+            coordinator.insertedText = textInsertion.id
+            DispatchQueue.main.async {
+                if textInsertion.asBlocks {
+                    view.insertBlocks(textInsertion.text.components(separatedBy: "\n"))
+                } else {
+                    view.insertAtSelection(textInsertion.text)
+                }
+            }
+        }
     }
 
     /// Shows a new anchor, after the text is in place and laid out.
@@ -75,6 +94,19 @@ public struct AtlasEditorView {
         guard let anchor, anchor.id != coordinator.revealed else { return }
         coordinator.revealed = anchor.id
         DispatchQueue.main.async { view.reveal(anchor) }
+    }
+}
+
+/// Text for the editor to put in place of the selection, from a picker: each new one once.
+public struct TextInsertion: Equatable, Sendable {
+    public let id = UUID()
+    public var text: String
+    /// Each line a paragraph of its own (`MarkdownEditing.insertBlocks`): previews.
+    public var asBlocks: Bool
+
+    public init(text: String, asBlocks: Bool = false) {
+        self.text = text
+        self.asBlocks = asBlocks
     }
 }
 

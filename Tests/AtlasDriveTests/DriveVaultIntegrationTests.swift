@@ -221,12 +221,37 @@ final class DriveVaultIntegrationTests: XCTestCase {
         let plainImage = try XCTUnwrap(root.first { $0.name == "plain.png" })
         let inTrips = try await browser.images(in: tripsFolder.id)
         XCTAssertEqual(inTrips.map(\.name), ["beach.png"], "images only")
+        // For linking, every file, with the type that says what opens it.
+        let everything = try await browser.files(in: tripsFolder.id)
+        XCTAssertEqual(everything.map(\.name), ["beach.png", "Notes.md"])
+        XCTAssertEqual(everything.map(\.mimeType), ["image/png", "text/markdown"])
         guard inTrips.count == 1 else { return XCTFail("\(inTrips)") }
 
         let beach = try await browser.read(inTrips[0])
         XCTAssertEqual(beach, png, "decrypted")
         let plain = try await browser.read(plainImage)
         XCTAssertEqual(plain, png, "never encrypted")
+
+        // Previews: a thumbnail when the file has one, else an image itself; nothing for a page.
+        let thumbnail = Data([0xFF, 0xD8, 0xFF, 0xE0, 9, 9, 9])
+        var withThumbnail = MultipartFormBody()
+        withThumbnail.appendField(name: "thumbnail_b64", value: thumbnail.base64EncodedString())
+        withThumbnail.appendFile(name: "file", fileName: "holiday.png", mimeType: "image/png", data: png)
+        var upload = URLRequest(url: server.appendingPathComponent("/api/v1/drive/files/upload"))
+        upload.httpMethod = "POST"
+        upload.setValue("Bearer \(account.token.value)", forHTTPHeaderField: "Authorization")
+        upload.setValue(withThumbnail.contentType, forHTTPHeaderField: "Content-Type")
+        upload.httpBody = withThumbnail.finalized()
+        let (uploaded, _) = try await URLSession.shared.data(for: upload)
+        let holiday = try XCTUnwrap((try JSONSerialization.jsonObject(with: uploaded) as? [String: Any])?["id"] as? String)
+        let holidayPreview = try await browser.preview(of: holiday)
+        XCTAssertEqual(holidayPreview, thumbnail, "the thumbnail")
+        let beachPreview = try await browser.preview(of: inTrips[0].id)
+        XCTAssertEqual(beachPreview, png, "no thumbnail: the image, decrypted")
+        let tripFiles = try await browser.files(in: tripsFolder.id)
+        let notes = try XCTUnwrap(tripFiles.first { $0.name == "Notes.md" })
+        let notesPreview = try await browser.preview(of: notes.id)
+        XCTAssertNil(notesPreview, "a page has no picture")
     }
 
     func testKeyRotationKeepsOldFilesReadable() async throws {

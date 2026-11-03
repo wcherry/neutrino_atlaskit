@@ -140,6 +140,8 @@ final class EditorStyling {
     var image: ((BlockImage) -> ShownImage?)?
     /// The blocks showing an image now.
     private(set) var imageBlocks: [Range<Int>] = []
+    /// Which links show as chips (`LinkChip`); nil, or nil for a link, leaves them as links.
+    var linkChip: ((String) -> LinkChip?)?
     private(set) var syntax = AtlasMarkdown.syntax(of: "")
     private var cache: [TextStyle: [NSAttributedString.Key: Any]] = [:]
     private var styledSelection = 0..<0
@@ -181,7 +183,8 @@ final class EditorStyling {
         guard block.range.upperBound <= storage.length else { return }
         imageBlocks.removeAll { $0 == block.range }
         if mode == .livePreview, !(selection.lowerBound <= block.range.upperBound && selection.upperBound >= block.range.lowerBound),
-           let image, let found = MarkdownEditing.blockImage(block, in: storage.string), let shown = image(found) {
+           let image, let found = MarkdownEditing.blockImage(block, in: storage.string, allowingURL: { self.linkChip?($0) != nil }),
+           let shown = image(found) {
             // The Markdown stays, hidden; the line is as tall as the image, which the view's
             // layout fragment draws there.
             var attributes = attributes({ var s = TextStyle(); s.hidden = true; return s }())
@@ -198,6 +201,31 @@ final class EditorStyling {
         for run in MarkdownStyler.runs(for: block, selection: selection, mode: mode) {
             storage.setAttributes(attributes(run.style), range: NSRange(location: run.range.lowerBound, length: run.range.count))
         }
+        if mode == .livePreview, let linkChip { markChips(block, storage, selection, linkChip) }
+    }
+
+    /// Links the app shows as chips, away from the cursor: `[text](url)` only, whose `[` makes
+    /// the symbol's slot.
+    private func markChips(_ block: PageSyntax.Block, _ storage: NSTextStorage, _ selection: Range<Int>, _ linkChip: (String) -> LinkChip?) {
+        let ns = storage.string as NSString
+        for span in block.spans {
+            // A link, or a preview with nothing to show (no thumbnail): its `!` stays hidden.
+            let url: String, slot: Int
+            switch span.kind {
+            case .link(let u): url = u; slot = span.range.lowerBound
+            case .image(let u): url = u; slot = span.range.lowerBound + 1
+            default: continue
+            }
+            guard span.range.count > 2, slot < span.range.upperBound,
+                  !(selection.lowerBound <= span.range.upperBound && selection.upperBound >= span.range.lowerBound),
+                  ns.character(at: slot) == 0x5B /* [ */, let chip = linkChip(url) else { continue }
+            storage.addAttribute(.atlasChip, value: ChipMark(symbol: chip.symbol), range: NSRange(location: slot, length: span.range.upperBound - slot))
+            // The `[` takes the symbol's width, unseen.
+            let font = PlatformFont.systemFont(ofSize: theme.fontSize)
+            let bracket = ("[" as NSString).size(withAttributes: [.font: font]).width
+            storage.addAttributes([.font: font, .foregroundColor: PlatformColor.clear, .kern: max(0, min(theme.fontSize, 14) + 5 - bracket)],
+                                  range: NSRange(location: slot, length: 1))
+        }
     }
 }
 
@@ -208,9 +236,14 @@ extension AtlasTextView {
         switch source {
         case .embed(let ref): name = "![[\(ref.target)]]"
         case .path(let path): name = "![](\(path))"
+        case .url(let url): name = "![](\(url))"
         }
         guard let data = imageData(source) else {
-            AtlasLog.images.notice("\(name): no such image in the vault")
+            if case .url = source {
+                AtlasLog.images.info("\(name): no preview (yet); shown as a chip")
+            } else {
+                AtlasLog.images.notice("\(name): no such image in the vault")
+            }
             return nil
         }
         guard let image = ShownImage.decode(data) else {
@@ -222,15 +255,23 @@ extension AtlasTextView {
     }
 }
 
-/// Gives a paragraph shown as an image (`.atlasImage`) a layout fragment that draws it.
+/// Gives a paragraph shown as an image (`.atlasImage`) a layout fragment that draws it, and one
+/// with link chips (`.atlasChip`) one that draws them.
 final class ImageFragments: NSObject, NSTextLayoutManagerDelegate {
     var padding: CGFloat = 6
 
     func textLayoutManager(_ textLayoutManager: NSTextLayoutManager, textLayoutFragmentFor location: NSTextLocation,
                            in textElement: NSTextElement) -> NSTextLayoutFragment {
-        if let paragraph = textElement as? NSTextParagraph, paragraph.attributedString.length > 0,
-           let shown = paragraph.attributedString.attribute(.atlasImage, at: 0, effectiveRange: nil) as? ShownImage {
-            return ImageLayoutFragment(textElement: textElement, range: textElement.elementRange, image: shown, padding: padding)
+        if let paragraph = textElement as? NSTextParagraph, paragraph.attributedString.length > 0 {
+            let text = paragraph.attributedString
+            if let shown = text.attribute(.atlasImage, at: 0, effectiveRange: nil) as? ShownImage {
+                return ImageLayoutFragment(textElement: textElement, range: textElement.elementRange, image: shown, padding: padding)
+            }
+            var chips = false
+            text.enumerateAttribute(.atlasChip, in: NSRange(location: 0, length: text.length)) { value, _, stop in
+                if value != nil { chips = true; stop.pointee = true }
+            }
+            if chips { return ChipLayoutFragment(textElement: textElement, range: textElement.elementRange) }
         }
         return NSTextLayoutFragment(textElement: textElement, range: textElement.elementRange)
     }
