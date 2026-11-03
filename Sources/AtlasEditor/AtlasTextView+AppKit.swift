@@ -84,6 +84,25 @@ public final class AtlasTextView: NSTextView {
         restyle()
     }
 
+    // The drag handle: its grip, the line showing where a block will land, and the drag.
+    lazy var blockHandle: BlockHandleView = {
+        let handle = BlockHandleView(frame: .zero)
+        handle.owner = self
+        handle.isHidden = true
+        addSubview(handle)
+        return handle
+    }()
+    lazy var dropIndicator: NSView = {
+        let line = NSView()
+        line.wantsLayer = true
+        line.layer?.backgroundColor = NSColor.controlAccentColor.cgColor
+        line.layer?.cornerRadius = 1
+        line.isHidden = true
+        addSubview(line)
+        return line
+    }()
+    var blockDragState: BlockDragState?
+
     public convenience init() { self.init(frame: .zero) }
 
     override public convenience init(frame: NSRect) {
@@ -118,7 +137,8 @@ public final class AtlasTextView: NSTextView {
         isAutomaticLinkDetectionEnabled = false
         isAutomaticDataDetectionEnabled = false
         smartInsertDeleteEnabled = false
-        textContainerInset = NSSize(width: 8, height: 12)
+        // Room on the left for the blocks' drag handle.
+        textContainerInset = NSSize(width: 26, height: 12)
         isVerticallyResizable = true
         autoresizingMask = [.width]
         typingAttributes = styling.baseAttributes
@@ -163,6 +183,7 @@ public final class AtlasTextView: NSTextView {
 
     override public func didChangeText() {
         super.didChangeText()
+        if blockDragState == nil { blockHandle.isHidden = true }
         restyle()
         onTextChange?(string)
         offerLinkCompletions()
@@ -468,6 +489,24 @@ public final class AtlasTextView: NSTextView {
         case "\r": toggleTask(nil); return true
         default: return super.performKeyEquivalent(with: event)
         }
+    }
+
+    override public func updateTrackingAreas() {
+        super.updateTrackingAreas()
+        for area in trackingAreas where area.owner === self && area.userInfo?["atlas"] != nil { removeTrackingArea(area) }
+        addTrackingArea(NSTrackingArea(rect: .zero, options: [.mouseMoved, .mouseEnteredAndExited, .activeInKeyWindow, .inVisibleRect],
+                                       owner: self, userInfo: ["atlas": "handle"]))
+    }
+
+    override public func mouseMoved(with event: NSEvent) {
+        super.mouseMoved(with: event)
+        showBlockHandle(at: convert(event.locationInWindow, from: nil))
+    }
+
+    override public func mouseExited(with event: NSEvent) {
+        super.mouseExited(with: event)
+        let point = convert(event.locationInWindow, from: nil)
+        if blockDragState == nil, !blockHandle.frame.insetBy(dx: -4, dy: -4).contains(point) { blockHandle.isHidden = true }
     }
 
     /// A right-click on a link to a file offers Show as Preview, or on a preview Show as Chip.

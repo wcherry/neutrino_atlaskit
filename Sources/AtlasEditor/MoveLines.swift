@@ -13,7 +13,7 @@ extension MarkdownEditing {
     /// kept; Tab and Shift-Tab change it. Nil at the top or bottom of the page, and next to the
     /// frontmatter, which stays first.
     public static func moveLines(_ direction: MoveDirection, in text: String, selection: Range<Int>, syntax: PageSyntax) -> TextEdit? {
-        let page = Lines(text)
+        let page = PageLines(text)
         let last = selection.isEmpty ? selection.lowerBound : max(selection.lowerBound, selection.upperBound - 1)
         var verbatim: [ClosedRange<Int>] = []
         var frontmatter: ClosedRange<Int>?
@@ -40,9 +40,9 @@ extension MarkdownEditing {
         /// non-blank lines indented further than the least-indented line moved.
         func withChildren(_ lines: ClosedRange<Int>) -> ClosedRange<Int> {
             guard ListLine(page[lines.lowerBound]) != nil else { return lines }
-            let indent = lines.map { page[$0] }.filter { !Lines.isBlank($0) }.map(Lines.indent).min() ?? 0
+            let indent = lines.map { page[$0] }.filter { !PageLines.isBlank($0) }.map(PageLines.indent).min() ?? 0
             var end = lines.upperBound
-            while end + 1 < page.count, !Lines.isBlank(page[end + 1]), Lines.indent(page[end + 1]) > indent { end += 1 }
+            while end + 1 < page.count, !PageLines.isBlank(page[end + 1]), PageLines.indent(page[end + 1]) > indent { end += 1 }
             return whole(lines.lowerBound...end)
         }
 
@@ -56,9 +56,9 @@ extension MarkdownEditing {
             var start = moved.lowerBound - 1
             // Moving a list item past the nested lines of the sibling above passes the sibling too.
             if ListLine(page[moved.lowerBound]) != nil {
-                let indent = Lines.indent(page[moved.lowerBound])
-                while start > 0, !Lines.isBlank(page[start]), Lines.indent(page[start]) > indent,
-                      !Lines.isBlank(page[start - 1]) { start -= 1 }
+                let indent = PageLines.indent(page[moved.lowerBound])
+                while start > 0, !PageLines.isBlank(page[start]), PageLines.indent(page[start]) > indent,
+                      !PageLines.isBlank(page[start - 1]) { start -= 1 }
             }
             passed = whole(start...(moved.lowerBound - 1))
         case .down:
@@ -77,7 +77,7 @@ extension MarkdownEditing {
 }
 
 /// A page's lines, split at `\n`, with their UTF-16 offsets.
-private struct Lines {
+struct PageLines {
     private let ns: NSString
     /// Where each line starts.
     private var starts: [Int] = [0]
