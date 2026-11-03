@@ -18,6 +18,7 @@ final class ConformanceCorpusTests: XCTestCase {
         let specVersion: String
         let cases: [Case]
         let resolve: [String]
+        var anchors: [String]?
     }
 
     struct VaultFixture: Decodable {
@@ -26,6 +27,14 @@ final class ConformanceCorpusTests: XCTestCase {
         let files: [String]
         let resolve: [Resolve]
         let write: [Write]
+    }
+
+    struct AnchorFixture: Decodable {
+        struct Anchor: Decodable { let heading: String?; let blockId: String?; let expect: String?; let why: String }
+        struct HeadingLink: Decodable { let text: String; let expect: String }
+        let page: String
+        let anchors: [Anchor]
+        let headingLinks: [HeadingLink]
     }
 
     static let corpus: URL = {
@@ -158,6 +167,28 @@ final class ConformanceCorpusTests: XCTestCase {
             }
             for c in fixture.write {
                 XCTAssertEqual(resolver.linkTarget(for: c.file), c.expect, "\(name): link written for \(c.file)")
+            }
+        }
+    }
+
+    /// Where a heading or block-id target lands in its page, as the source line it starts on, and
+    /// how a heading is written into a link (SPEC §7, "Headings and block ids").
+    func testHeadingAndBlockTargetsMatchTheAnchorFixtures() throws {
+        let names = try manifest().anchors ?? []
+        XCTAssertFalse(names.isEmpty, "the corpus has anchors fixtures")
+        for name in names {
+            let fixture = try load(AnchorFixture.self, "anchors/\(name).json")
+            let ns = fixture.page as NSString
+            let syntax = AtlasMarkdown.syntax(of: fixture.page)
+            for c in fixture.anchors {
+                let found = syntax.anchor(heading: c.heading, blockId: c.blockId, in: fixture.page).map { range in
+                    ns.substring(with: ns.lineRange(for: NSRange(location: range.lowerBound, length: 0)))
+                        .trimmingCharacters(in: .newlines)
+                }
+                XCTAssertEqual(found, c.expect, "\(name): \(c.heading ?? "^" + (c.blockId ?? "")) (\(c.why))")
+            }
+            for c in fixture.headingLinks {
+                XCTAssertEqual(AtlasMarkdown.headingLinkText(c.text), c.expect, "\(name): a link to the heading \"\(c.text)\"")
             }
         }
     }

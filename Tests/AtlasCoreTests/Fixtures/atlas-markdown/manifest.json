@@ -1,5 +1,5 @@
 {
-  "specVersion": "1.0.0-draft.4",
+  "specVersion": "1.0.0-draft.5",
   "cases": [
     {
       "id": "core/paragraphs-headings",
@@ -272,5 +272,8 @@
   ],
   "resolve": [
     "vault"
+  ],
+  "anchors": [
+    "headings"
   ]
 }
