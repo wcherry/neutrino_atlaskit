@@ -1,0 +1,26 @@
+{
+  "type": "root",
+  "children": [
+    {
+      "type": "list",
+      "ordered": false,
+      "start": null,
+      "spread": false,
+      "blockId": null,
+      "children": [
+        {
+          "type": "listItem",
+          "checked": false,
+          "spread": false,
+          "children": []
+        },
+        {
+          "type": "listItem",
+          "checked": null,
+          "spread": false,
+          "children": []
+        }
+      ]
+    }
+  ]
+}

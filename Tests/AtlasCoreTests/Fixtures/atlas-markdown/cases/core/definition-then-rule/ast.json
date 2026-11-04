@@ -1,0 +1,33 @@
+{
+  "type": "root",
+  "children": [
+    {
+      "type": "paragraph",
+      "blockId": null,
+      "children": [
+        {
+          "type": "text",
+          "value": "---\nBack "
+        },
+        {
+          "type": "link",
+          "url": "https://example.com",
+          "title": null,
+          "children": [
+            {
+              "type": "text",
+              "value": "home"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "value": "."
+        }
+      ]
+    },
+    {
+      "type": "thematicBreak"
+    }
+  ]
+}

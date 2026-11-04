@@ -1,0 +1,68 @@
+{
+  "type": "root",
+  "children": [
+    {
+      "type": "table",
+      "align": [
+        null,
+        null
+      ],
+      "blockId": null,
+      "children": [
+        {
+          "type": "tableRow",
+          "children": [
+            {
+              "type": "tableCell",
+              "children": [
+                {
+                  "type": "text",
+                  "value": "Site"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "children": [
+                {
+                  "type": "text",
+                  "value": "Note"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "children": [
+            {
+              "type": "tableCell",
+              "children": [
+                {
+                  "type": "link",
+                  "url": "http://www.example.com|x",
+                  "title": null,
+                  "children": [
+                    {
+                      "type": "text",
+                      "value": "www.example.com|x"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "children": [
+                {
+                  "type": "text",
+                  "value": "ok"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

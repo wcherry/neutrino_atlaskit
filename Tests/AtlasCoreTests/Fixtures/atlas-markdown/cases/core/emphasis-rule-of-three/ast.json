@@ -1,0 +1,24 @@
+{
+  "type": "root",
+  "children": [
+    {
+      "type": "paragraph",
+      "blockId": null,
+      "children": [
+        {
+          "type": "emphasis",
+          "children": [
+            {
+              "type": "text",
+              "value": "word"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "value": "***word**"
+        }
+      ]
+    }
+  ]
+}

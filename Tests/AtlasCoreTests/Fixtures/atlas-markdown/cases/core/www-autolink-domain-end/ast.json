@@ -1,0 +1,55 @@
+{
+  "type": "root",
+  "children": [
+    {
+      "type": "paragraph",
+      "blockId": null,
+      "children": [
+        {
+          "type": "text",
+          "value": "Try "
+        },
+        {
+          "type": "link",
+          "url": "http://www",
+          "title": null,
+          "children": [
+            {
+              "type": "text",
+              "value": "www"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "value": ". first, then "
+        },
+        {
+          "type": "link",
+          "url": "http://www.example.com",
+          "title": null,
+          "children": [
+            {
+              "type": "text",
+              "value": "www.example.com"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "value": "."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "blockId": null,
+      "children": [
+        {
+          "type": "text",
+          "value": "www."
+        }
+      ]
+    }
+  ]
+}

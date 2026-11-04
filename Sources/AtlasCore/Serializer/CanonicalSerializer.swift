@@ -145,8 +145,9 @@ struct BlockWriter {
     /// `atFileStart`: the block's first line is the file's first line. `afterParagraphLine`: the
     /// line above is a paragraph line with no blank line between. `inDashItem`: the block opens a
     /// `-` list item, on the marker's line. Each decides how a thematic break is written.
+    /// `afterBox`: the block opens a task item, after its box, where a heading must be setext.
     mutating func block(_ node: MarkdownNode, previous: MarkdownNode?, atFileStart: Bool = false,
-                        afterParagraphLine: Bool = false, inDashItem: Bool = false) -> [String] {
+                        afterParagraphLine: Bool = false, inDashItem: Bool = false, afterBox: Bool = false) -> [String] {
         var lines: [String]
         switch node {
         case .paragraph(let id, let kids):
@@ -155,8 +156,9 @@ struct BlockWriter {
             return lines
         case .heading(let depth, let kids):
             let text = inline(kids)
-            if text.contains("\n"), depth <= 2 {
-                // A heading whose text spans lines can only be written setext.
+            if text.contains("\n") || afterBox, depth <= 2 {
+                // A heading whose text spans lines can only be written setext, and so can one
+                // right after a task's box, where `#` would be text.
                 let body = text.components(separatedBy: "\n")
                 return body + [String(repeating: depth == 1 ? "=" : "-", count: 3)]
             }
@@ -210,12 +212,13 @@ struct BlockWriter {
     }
 
     /// Sibling blocks: one blank line between them, or none in a tight list item.
-    mutating func blocks(_ kids: [MarkdownNode], tight: Bool, inDashItem: Bool = false) -> [String] {
+    mutating func blocks(_ kids: [MarkdownNode], tight: Bool, inDashItem: Bool = false, afterBox: Bool = false) -> [String] {
         var out: [String] = []
         for (i, kid) in kids.enumerated() {
             if i > 0 && !tight { out.append("") }
             let afterParagraph = tight && i > 0 && kids[i - 1].isParagraph
-            out += block(kid, previous: i > 0 ? kids[i - 1] : nil, afterParagraphLine: afterParagraph, inDashItem: inDashItem && i == 0)
+            out += block(kid, previous: i > 0 ? kids[i - 1] : nil, afterParagraphLine: afterParagraph, inDashItem: inDashItem && i == 0,
+                         afterBox: afterBox && i == 0)
         }
         return out
     }
@@ -234,7 +237,7 @@ struct BlockWriter {
             if i > 0 && spread { out.append("") }
             let marker = ordered ? "\(start + i)" + (alternate ? ")" : ".") : (alternate ? "*" : "-")
             let indent = String(repeating: " ", count: marker.count + 1)
-            var inner = blocks(kids, tight: !itemSpread, inDashItem: marker == "-" && checked == nil)
+            var inner = blocks(kids, tight: !itemSpread, inDashItem: marker == "-" && checked == nil, afterBox: checked != nil)
             if let checked {
                 // An empty task keeps the space after its box: without it, it isn't a task.
                 let box = checked ? "[x]" : "[ ]"
@@ -315,9 +318,9 @@ struct BlockWriter {
                 if "mailto:" + t == url, isAutolinkable(t) { return "<" + t + ">" }
                 if "http://" + t == url, t.hasPrefix("www.") { afterBareLink = true; return t }
             }
-            return "[" + inline(kids, inTable: inTable) + "](" + destination(url) + titlePart(title) + ")"
+            return "[" + inline(kids, inTable: inTable) + "](" + destination(url, inTable: inTable) + titlePart(title, inTable: inTable) + ")"
         case .image(let url, let title, let alt):
-            return "![" + text(alt) + "](" + destination(url) + titlePart(title) + ")"
+            return "![" + text(alt) + "](" + destination(url, inTable: inTable) + titlePart(title, inTable: inTable) + ")"
         case .footnoteReference(_, let label):
             return "[^" + (label ?? "") + "]"
         case .wikiLink(let r):
@@ -389,17 +392,21 @@ struct BlockWriter {
 
     /// A link destination. Backslashes, and `&` where it would start an entity, are escaped
     /// because destinations process both. Spaces, parentheses and angle brackets need `<…>`.
-    private func destination(_ url: String) -> String {
-        let escaped = Self.escapeEntitiesAndBackslashes(url)
+    /// In a table cell `|` is `\|`, as everywhere in a cell: GFM unescapes a cell's pipes before
+    /// it reads the cell's inlines.
+    private func destination(_ url: String, inTable: Bool = false) -> String {
+        var escaped = Self.escapeEntitiesAndBackslashes(url)
+        if inTable { escaped = escaped.replacingOccurrences(of: "|", with: "\\|") }
         if url.isEmpty || url.contains(where: { $0 == " " || $0 == "(" || $0 == ")" || $0 == "<" || $0 == ">" }) {
             return "<" + escaped.replacingOccurrences(of: "<", with: "\\<").replacingOccurrences(of: ">", with: "\\>") + ">"
         }
         return escaped
     }
 
-    private func titlePart(_ title: String?) -> String {
+    private func titlePart(_ title: String?, inTable: Bool = false) -> String {
         guard let title else { return "" }
-        return " \"" + Self.escapeEntitiesAndBackslashes(title).replacingOccurrences(of: "\"", with: "\\\"") + "\""
+        let escaped = Self.escapeEntitiesAndBackslashes(title).replacingOccurrences(of: "\"", with: "\\\"")
+        return " \"" + (inTable ? escaped.replacingOccurrences(of: "|", with: "\\|") : escaped) + "\""
     }
 
     /// For strings CommonMark processes for entities and backslash escapes (link destinations

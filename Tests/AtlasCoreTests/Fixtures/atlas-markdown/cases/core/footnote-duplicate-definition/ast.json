@@ -1,0 +1,41 @@
+{
+  "type": "root",
+  "children": [
+    {
+      "type": "paragraph",
+      "blockId": null,
+      "children": [
+        {
+          "type": "text",
+          "value": "Note"
+        },
+        {
+          "type": "footnoteReference",
+          "identifier": "1",
+          "label": "1"
+        },
+        {
+          "type": "text",
+          "value": "."
+        }
+      ]
+    },
+    {
+      "type": "footnoteDefinition",
+      "identifier": "1",
+      "label": "1",
+      "children": [
+        {
+          "type": "paragraph",
+          "blockId": null,
+          "children": [
+            {
+              "type": "text",
+              "value": "First."
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

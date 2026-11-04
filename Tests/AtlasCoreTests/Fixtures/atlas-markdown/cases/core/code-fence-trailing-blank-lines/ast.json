@@ -1,0 +1,19 @@
+{
+  "type": "root",
+  "children": [
+    {
+      "type": "code",
+      "lang": null,
+      "meta": null,
+      "value": "code\n\n",
+      "blockId": null
+    },
+    {
+      "type": "code",
+      "lang": null,
+      "meta": null,
+      "value": "open\n",
+      "blockId": null
+    }
+  ]
+}
