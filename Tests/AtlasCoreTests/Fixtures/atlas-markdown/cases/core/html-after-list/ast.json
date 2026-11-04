@@ -1,0 +1,45 @@
+{
+  "type": "root",
+  "children": [
+    {
+      "type": "list",
+      "ordered": false,
+      "start": null,
+      "spread": false,
+      "blockId": null,
+      "children": [
+        {
+          "type": "listItem",
+          "checked": null,
+          "spread": false,
+          "children": [
+            {
+              "type": "paragraph",
+              "blockId": null,
+              "children": [
+                {
+                  "type": "text",
+                  "value": "item"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "html",
+      "value": "<span>\nnot in the list"
+    },
+    {
+      "type": "paragraph",
+      "blockId": null,
+      "children": [
+        {
+          "type": "text",
+          "value": "after"
+        }
+      ]
+    }
+  ]
+}

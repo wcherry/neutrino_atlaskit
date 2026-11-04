@@ -1,5 +1,5 @@
 {
-  "specVersion": "1.0.0-draft.5",
+  "specVersion": "1.0.0-draft.6",
   "cases": [
     {
       "id": "core/paragraphs-headings",
@@ -268,6 +268,94 @@
     {
       "id": "callouts/tasks",
       "description": "Tasks inside a callout; a first child that is not a paragraph follows a > line in canonical form."
+    },
+    {
+      "id": "core/table-after-definition",
+      "description": "A reference definition on the line before a table's header row is text: cmark-gfm splits the table off before it reads definitions, so `[docs]` defines nothing."
+    },
+    {
+      "id": "core/table-lone-pipe-row",
+      "description": "A row of only `|` has no cells, so it ends the table and starts a paragraph."
+    },
+    {
+      "id": "core/table-failed-delimiter",
+      "description": "Once a line shaped like a delimiter row fails to match the line above it, the paragraph never becomes a table, even where a later pair would match."
+    },
+    {
+      "id": "core/table-cell-escaped-pipe",
+      "description": "A cell's `\\|` is unescaped before its inlines are parsed, so an autolink takes the `|`."
+    },
+    {
+      "id": "core/code-span-backtick-memory",
+      "description": "cmark-gfm's closer search remembers the last run of each length it passed. After an unclosed `` `` ``, the span `` `x` `` overwrites that memory, so `` `y` `` is literal."
+    },
+    {
+      "id": "core/code-span-lazy-line",
+      "description": "A code span running on to a lazy continuation line keeps that line's indentation; on a line that isn't lazy it's stripped."
+    },
+    {
+      "id": "core/emphasis-rule-of-three",
+      "description": "The rule of 3 sums the lengths of the delimiter runs as written: `****` closes the `*` and keeps `***`, which can't open for the `**`."
+    },
+    {
+      "id": "core/www-autolink-domain-end",
+      "description": "A `www.` link's domain check reads up to the space after it, so `www.` alone links `www`; at the end of the text it doesn't."
+    },
+    {
+      "id": "core/definition-then-rule",
+      "description": "`---` right after reference definitions underlines a paragraph that holds nothing else, so it's text, not a thematic break. After a blank line it's a break."
+    },
+    {
+      "id": "core/footnote-duplicate-definition",
+      "description": "Only the first definition of a footnote label counts; later ones are left out of the tree."
+    },
+    {
+      "id": "core/html-declaration-case",
+      "description": "A declaration needs an uppercase letter after `<!` (GFM 0.29): `<!doctype html>` is text."
+    },
+    {
+      "id": "core/html-after-list",
+      "description": "An HTML tag alone on an unindented line after a list item starts an HTML block after the list, which runs to the next blank line."
+    },
+    {
+      "id": "core/html-after-blockquote",
+      "description": "An HTML tag alone on a line without `>` after a quote starts an HTML block after it."
+    },
+    {
+      "id": "core/task-box-without-space",
+      "description": "A box with nothing after it on its line, not even a space, is text, not a task."
+    },
+    {
+      "id": "core/task-heading-and-table",
+      "description": "The box comes out of the item's paragraph before that becomes a setext heading or a table's header row."
+    },
+    {
+      "id": "core/task-definition",
+      "description": "A reference definition right after a task's box defines its label for the whole page; the item is left empty."
+    },
+    {
+      "id": "core/task-empty-then-blank",
+      "description": "An empty task ends at a blank line, like any item that starts empty: the indented text after it is a paragraph after the list."
+    },
+    {
+      "id": "core/list-spread-definition",
+      "description": "A reference definition in an item doesn't count when judging whether the list is loose."
+    },
+    {
+      "id": "core/code-fence-trailing-blank-lines",
+      "description": "Blank lines before a closing fence are part of the code; an unclosed fence keeps the blank lines at the end of the file too."
+    },
+    {
+      "id": "core/setext-after-pipe-line",
+      "description": "A `-` line under a paragraph line holding a `|` that isn't a table's header underlines a setext heading."
+    },
+    {
+      "id": "core/empty-task-nested-on-line",
+      "description": "Nested on the same line as another item, an empty box is the item's text: cmark-gfm only sees a box that starts its line."
+    },
+    {
+      "id": "core/empty-task-then-dash",
+      "description": "Under an empty task, a `-` line is an empty item of its own, not an underline: the box isn't paragraph text."
     }
   ],
   "resolve": [

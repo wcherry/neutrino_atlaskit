@@ -1,0 +1,19 @@
+{
+  "type": "root",
+  "children": [
+    {
+      "type": "paragraph",
+      "blockId": null,
+      "children": [
+        {
+          "type": "text",
+          "value": "<!doctype html>"
+        }
+      ]
+    },
+    {
+      "type": "html",
+      "value": "<!DOCTYPE html>"
+    }
+  ]
+}

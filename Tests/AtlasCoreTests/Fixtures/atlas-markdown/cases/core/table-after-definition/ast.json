@@ -1,0 +1,82 @@
+{
+  "type": "root",
+  "children": [
+    {
+      "type": "paragraph",
+      "blockId": null,
+      "children": [
+        {
+          "type": "text",
+          "value": "[docs]: "
+        },
+        {
+          "type": "link",
+          "url": "https://example.com/docs",
+          "title": null,
+          "children": [
+            {
+              "type": "text",
+              "value": "https://example.com/docs"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "table",
+      "align": [
+        null,
+        null
+      ],
+      "blockId": null,
+      "children": [
+        {
+          "type": "tableRow",
+          "children": [
+            {
+              "type": "tableCell",
+              "children": [
+                {
+                  "type": "text",
+                  "value": "Page"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "children": [
+                {
+                  "type": "text",
+                  "value": "Link"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "children": [
+            {
+              "type": "tableCell",
+              "children": [
+                {
+                  "type": "text",
+                  "value": "Spec"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "children": [
+                {
+                  "type": "text",
+                  "value": "[docs]"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

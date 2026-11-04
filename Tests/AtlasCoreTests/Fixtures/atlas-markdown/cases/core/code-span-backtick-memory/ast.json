@@ -1,0 +1,23 @@
+{
+  "type": "root",
+  "children": [
+    {
+      "type": "paragraph",
+      "blockId": null,
+      "children": [
+        {
+          "type": "text",
+          "value": "Type `` to start a fence, then "
+        },
+        {
+          "type": "inlineCode",
+          "value": "x"
+        },
+        {
+          "type": "text",
+          "value": " and `y`."
+        }
+      ]
+    }
+  ]
+}

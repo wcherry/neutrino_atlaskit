@@ -1,0 +1,47 @@
+{
+  "type": "root",
+  "children": [
+    {
+      "type": "blockquote",
+      "blockId": null,
+      "children": [
+        {
+          "type": "paragraph",
+          "blockId": null,
+          "children": [
+            {
+              "type": "text",
+              "value": "Run "
+            },
+            {
+              "type": "inlineCode",
+              "value": "npm   install"
+            },
+            {
+              "type": "text",
+              "value": " first."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "blockId": null,
+      "children": [
+        {
+          "type": "text",
+          "value": "Then "
+        },
+        {
+          "type": "inlineCode",
+          "value": "npm test"
+        },
+        {
+          "type": "text",
+          "value": "."
+        }
+      ]
+    }
+  ]
+}
